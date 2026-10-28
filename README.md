@@ -148,6 +148,22 @@ never-touch list.
 
 To undo a debloat, run `bin/restore` with the snapshot debloat took.
 
+The disable list includes the Google TV screensaver
+(`com.google.android.apps.tv.dreamx`). Point the screensaver at Android's
+basic one so the TV doesn't go on asking for the disabled one:
+
+```sh
+adb -s <tv-ip>:5555 shell settings put secure screensaver_components com.android.dreams.basic/.Colors
+```
+
+To make menus feel quicker, halve the animation speeds:
+
+```sh
+for k in window_animation_scale transition_animation_scale animator_duration_scale; do
+  adb -s <tv-ip>:5555 shell settings put global $k 0.5
+done
+```
+
 Keep the disable list conservative. Before you add a package, find out what it
 does, and run the test checklist below afterwards.
 

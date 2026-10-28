@@ -19,3 +19,18 @@ com.google.android.videos               # Google TV / Play Movies: sells films a
 com.tcl.channelplus                     # TCL Channel: TCL's free ad-supported channels
 com.tcl.esticker                        # E-sticker: in-store feature stickers overlaid on the picture
 android.autoinstalls.config.google.gtvpai  # Play Auto Installs: quietly installs apps partners paid to promote
+
+# TCL extras with background services, unused now our Home app is the Home screen
+com.tcl.smartalexa                      # Alexa for TCL: background voice service; Google Assistant stays
+com.tcl.guard                           # TCL Guard: "cleaner" and scanner that runs in the background
+com.tcl.tv.tclhome_passive              # TCL Home feed: background content for TCL's home screen
+com.tcl.dashboard                       # TCL Home: TCL's dashboard, replaced by our Home app
+com.tcl.usercenter                      # TCL account: TCL sign-in and promos
+com.tcl.partnercustomizer               # Partner customizer: pushes partner (ad) settings
+com.tcl.ocean.instructions              # TCL user manual
+com.tcl.gamebar                         # Game bar: overlay for game mode on HDMI
+com.tcl.MultiScreenInteraction_TV       # MagiConnect: TCL's phone-to-TV app; Chromecast built-in stays
+com.tcl.notereminder                    # Reminder: TCL's reminders app
+
+# Google extras
+com.google.android.apps.tv.dreamx       # Google TV screensaver: downloads photos when idle; the basic screensaver stays
