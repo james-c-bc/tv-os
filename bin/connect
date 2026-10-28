@@ -10,11 +10,18 @@ entry="$(tv_lookup "${1:-}")"
 name="${entry%% *}"
 serial="${entry#* }:$ADB_PORT"
 
-# adb connect exits 0 even when it fails, so read what it says.
-result="$(adb connect "$serial" 2>&1 || true)"
+help="Check the TV is on, this Mac is on the same network, and USB debugging is on (see README)."
+
+# adb connect exits 0 even when it fails, so read what it says. It can also
+# hang for over a minute when nothing answers, so cap it.
+rc=0
+result="$(with_timeout "$ADB_CONNECT_TIMEOUT" adb connect "$serial" 2>&1)" || rc=$?
+if [[ "$rc" -eq 124 ]]; then
+  die "$name at $serial didn't answer within ${ADB_CONNECT_TIMEOUT}s. $help"
+fi
 if [[ "$result" != *"connected to"* || "$result" == *"failed"* ]]; then
   echo "$result" >&2
-  die "couldn't reach $name at $serial. Check the TV is on, on the same network, and has Network debugging turned on (see README)."
+  die "couldn't reach $name at $serial. $help"
 fi
 
 require_connected "$serial"

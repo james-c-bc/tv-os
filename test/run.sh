@@ -31,7 +31,7 @@ contains() { [[ "$out" == *"$1"* ]]; }
 
 reset() {
   : > "$STUB_LOG"
-  unset STUB_CONNECT STUB_STATE STUB_SERIAL STUB_HOME
+  unset STUB_CONNECT STUB_STATE STUB_SERIAL STUB_HOME STUB_FIRMWARE
   cat > "$TVS_CONF" <<'EOF'
 # name  ip
 living-room  192.168.1.50
@@ -61,7 +61,16 @@ reset
 run "$root/bin/connect"
 expect "connect fails when the TV refuses" test "$code" -ne 0
 expect "connect points at network debugging when it can't reach the TV" \
-  contains "Network debugging"
+  contains "USB debugging"
+
+reset
+export STUB_CONNECT=hang ADB_CONNECT_TIMEOUT=1
+start=$SECONDS
+run "$root/bin/connect"
+expect "connect gives up when the TV doesn't answer" test "$code" -ne 0
+expect "connect doesn't wait forever" test $((SECONDS - start)) -lt 5
+expect "connect says it timed out" contains "didn't answer within 1s"
+unset ADB_CONNECT_TIMEOUT
 
 reset
 export STUB_CONNECT=ok STUB_STATE=unauthorized
@@ -91,7 +100,9 @@ run "$root/bin/check"
 expect "check succeeds when a TV is connected" test "$code" -eq 0
 expect "check prints the model" contains "Model:            Smart TV"
 expect "check prints the Android version" contains "Android version:  11"
-expect "check prints the firmware build" contains "Build:            V8-R51MT05-LF1V620.021315"
+expect "check prints TCL's firmware version" contains "Firmware:         V8-R51MT05-LF1V620"
+expect "check prints the Android build" contains "Android build:    RP1A.200622.001 release-keys"
+expect "check prints the security patch" contains "Security patch:   2024-03-05"
 expect "check prints the Home activity" \
   contains "Home activity:    com.google.android.tvlauncher/.MainActivity"
 expect "check talks to the TV from config" \
@@ -105,6 +116,12 @@ export STUB_STATE=device STUB_SERIAL=192.168.1.51:5555
 run "$root/bin/check" bedroom
 expect "check can target a TV by name" \
   grep -q -- "-s 192.168.1.51:5555 shell" "$STUB_LOG"
+
+reset
+export STUB_STATE=device STUB_FIRMWARE=""
+run "$root/bin/check"
+expect "check says when the TV has no TCL firmware version" \
+  contains "Firmware:         unknown"
 
 reset
 run "$root/bin/check" kitchen

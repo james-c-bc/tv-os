@@ -8,6 +8,7 @@
 TV_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TVS_CONF="${TVS_CONF:-$TV_ROOT/tvs.conf}"
 ADB_PORT=5555
+ADB_CONNECT_TIMEOUT="${ADB_CONNECT_TIMEOUT:-10}"
 
 die() {
   echo "error: $*" >&2
@@ -17,6 +18,28 @@ die() {
 require_adb() {
   command -v adb > /dev/null \
     || die "adb not found. Install it with: brew install --cask android-platform-tools"
+}
+
+# with_timeout <seconds> <cmd...>: runs cmd, killing it after <seconds>.
+# Returns 124 on timeout, like coreutils timeout (which macOS lacks).
+with_timeout() {
+  local secs="$1" pid watcher rc flag
+  shift
+  flag="$(mktemp)"
+  "$@" &
+  pid=$!
+  # The watcher's output goes to /dev/null so a caller's $(...) doesn't
+  # wait on it.
+  ( sleep "$secs" && rm -f "$flag" && kill "$pid" ) > /dev/null 2>&1 &
+  watcher=$!
+  wait "$pid"
+  rc=$?
+  kill "$watcher" 2> /dev/null
+  if [[ ! -e "$flag" ]]; then
+    return 124
+  fi
+  rm -f "$flag"
+  return "$rc"
 }
 
 # tv_lookup [name]: prints "<name> <ip>" for the named TV, or for the first

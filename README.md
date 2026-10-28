@@ -24,8 +24,12 @@ This needs someone with the remote; a script can't do it.
 2. Select **Build** 7 times. The TV says you're now a developer.
 3. Go back to **Settings → Device Preferences → Developer options**.
 4. Turn on **USB debugging**.
-5. Turn on **Network debugging** (on some firmware it's called **ADB over network**).
-   This makes the TV listen for ADB on port 5555.
+5. Turn on **Network debugging** if your TV has it (some firmware calls it
+   **ADB over network**). The RT51M firmware has no such toggle: on that TV,
+   USB debugging alone makes it listen for ADB over Wi-Fi on port 5555.
+
+To check the TV is listening, run `nc -vz <tv-ip> 5555` on the Mac. It should
+say "succeeded".
 
 The TV's IP is in **Settings → Network & Internet** → your Wi-Fi network.
 
@@ -57,6 +61,10 @@ The first time, the TV shows an **Allow USB debugging?** prompt. Tick
 **Always allow from this computer** and choose **OK**, then run `bin/connect`
 again.
 
+If it can't reach the TV, check that the Mac is on the same Wi-Fi network as
+the TV and not on a phone hotspot: `ipconfig getifaddr en0` (or `en1`) should
+print an address in the same range as the TV's.
+
 ## Scripts
 
 Each script uses the first TV in `tvs.conf`. To use a different TV, pass its
@@ -65,7 +73,7 @@ name, e.g. `bin/check bedroom`.
 | Script        | What it does                                                                 |
 | ------------- | ---------------------------------------------------------------------------- |
 | `bin/connect` | Connects to the TV over Wi-Fi ADB (port 5555).                               |
-| `bin/check`   | Prints the TV's model, Android version, firmware build and Home activity.    |
+| `bin/check`   | Prints the TV's model, Android version, firmware, security patch and Home activity. |
 
 ## Tests
 

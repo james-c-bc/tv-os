@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Usage: bin/check [tv-name]
-# Prints what the connected TV is: model, Android version, firmware build
-# and the current default Home activity.
+# Prints what the connected TV is: model, Android version, TCL firmware
+# version, Android build, security patch and the current default Home
+# activity.
 set -euo pipefail
 source "$(dirname "$0")/../lib/tv.sh"
 
@@ -11,11 +12,16 @@ require_connected "$serial"
 
 tv() { adb -s "$serial" shell "$@" | tr -d '\r'; }
 
+# TCL keeps its firmware version in its own property.
+firmware="$(tv getprop ro.software.version_id)"
+
 home="$(tv cmd package resolve-activity --brief \
   -a android.intent.action.MAIN -c android.intent.category.HOME | tail -n 1)"
 
 echo "TV:               $serial"
 echo "Model:            $(tv getprop ro.product.model)"
 echo "Android version:  $(tv getprop ro.build.version.release)"
-echo "Build:            $(tv getprop ro.build.display.id)"
+echo "Firmware:         ${firmware:-unknown}"
+echo "Android build:    $(tv getprop ro.build.display.id)"
+echo "Security patch:   $(tv getprop ro.build.version.security_patch)"
 echo "Home activity:    $home"

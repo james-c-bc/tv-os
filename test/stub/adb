@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Fake adb for tests. Behaviour is driven by env vars:
-#   STUB_CONNECT  "ok" -> connect succeeds; anything else -> connect fails
+#   STUB_CONNECT  "ok" -> connect succeeds; "hang" -> connect never returns;
+#                 anything else -> connect fails
+#   STUB_FIRMWARE what ro.software.version_id holds (TCL-only; may be empty)
 #   STUB_STATE    device state `devices` lists (unset -> no devices)
 #   STUB_SERIAL   serial `devices` lists (default 192.168.1.50:5555)
 #   STUB_HOME     what `resolve-activity --brief` prints on its last line
@@ -18,6 +20,8 @@ case "$1" in
   connect)
     if [[ "${STUB_CONNECT:-}" == "ok" ]]; then
       echo "connected to $2"
+    elif [[ "${STUB_CONNECT:-}" == "hang" ]]; then
+      exec sleep 30 # exec, so killing adb kills the sleep, as with real adb
     else
       echo "failed to connect to '$2': Connection refused"
     fi
@@ -34,7 +38,9 @@ case "$1" in
     case "$*" in
       "getprop ro.product.model") echo "Smart TV" ;;
       "getprop ro.build.version.release") echo "11" ;;
-      "getprop ro.build.display.id") echo "V8-R51MT05-LF1V620.021315" ;;
+      "getprop ro.build.display.id") echo "RP1A.200622.001 release-keys" ;;
+      "getprop ro.software.version_id") echo "${STUB_FIRMWARE-V8-R51MT05-LF1V620}" ;;
+      "getprop ro.build.version.security_patch") echo "2024-03-05" ;;
       cmd\ package\ resolve-activity*)
         echo "priority=0 preferredOrder=0 match=0x108000 specificIndex=-1 isDefault=true"
         echo "${STUB_HOME:-com.google.android.tvlauncher/.MainActivity}"
