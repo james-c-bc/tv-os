@@ -5,12 +5,9 @@
 #   STUB_FIRMWARE what ro.software.version_id holds (TCL-only; may be empty)
 #   STUB_STATE    device state `devices` lists (unset -> no devices)
 #   STUB_SERIAL   serial `devices` lists (default 192.168.1.50:5555)
-#   STUB_HOME     file holding the default Home activity, which
-#                 set-home-activity writes (missing -> the stock launcher)
 #   STUB_FOREGROUND  activity that comes to the front when Home is pressed
 #                 (unset -> the default Home)
-#   STUB_BOOT_ID  the TV's boot id (default boot-1)
-#   STUB_MARKER   file standing in for the TV's /data/local/tmp boot marker
+#   STUB_DISABLE_FAIL  pm disable-user fails for this package
 #   STUB_PACKAGES file of "<state> <package>" lines (enabled, disabled or
 #                 uninstalled) the pm commands read and update
 #   STUB_INSTALL_FAIL  install fails for APKs whose file name contains this
@@ -24,16 +21,22 @@ set_state() {
     > "$STUB_PACKAGES.new" && mv "$STUB_PACKAGES.new" "$STUB_PACKAGES"
 }
 
-# home_of <package>: prints the package's Home activity, if it has one
-home_of() {
-  case "$1" in
-    com.google.android.tvlauncher) echo "$1/.MainActivity" ;;
-    com.google.android.apps.tv.launcherx) echo "$1/.home.HomeActivity" ;;
-    com.spocky.projengmenu) echo "$1/.ui.home.MainActivity" ;;
-  esac
+# home: prints the default Home activity. As on the real firmware, the
+# enabled package with the highest Home priority wins: launcherx (2), then
+# setupwraith (1), then our app (0), then TV Settings' FallbackHome (-1000).
+home() {
+  local pkg activity
+  for activity in com.google.android.apps.tv.launcherx/.home.HomeActivity \
+    com.google.android.tungsten.setupwraith/.MainActivity \
+    io.github.james_c_bc.home/.HomeActivity \
+    com.android.tv.settings/.FallbackHome; do
+    pkg="${activity%%/*}"
+    if grep -qx "enabled $pkg" "$STUB_PACKAGES"; then
+      echo "$activity"
+      return
+    fi
+  done
 }
-
-home() { cat "$STUB_HOME" 2> /dev/null || echo com.google.android.tvlauncher/.MainActivity; }
 
 serial=""
 if [[ "$1" == "-s" ]]; then
@@ -80,24 +83,6 @@ case "$1" in
         echo "priority=0 preferredOrder=0 match=0x108000 specificIndex=-1 isDefault=true"
         home
         ;;
-      cmd\ package\ query-activities*)
-        # Same layout as the real TV: a count, then indented entries.
-        activities="$(awk '$1 == "enabled" { print $2 }' "$STUB_PACKAGES" \
-          | while read -r pkg; do home_of "$pkg"; done)"
-        echo "$(grep -c . <<< "$activities") activities found:"
-        i=0
-        while read -r activity; do
-          [[ -n "$activity" ]] || continue
-          echo "  Activity #$i:"
-          echo "    priority=0 preferredOrder=0 match=0x108000 specificIndex=-1 isDefault=true"
-          echo "    $activity"
-          i=$((i + 1))
-        done <<< "$activities"
-        ;;
-      "cmd package set-home-activity --user 0 "*)
-        echo "${*: -1}" > "$STUB_HOME"
-        echo "Success"
-        ;;
       "input keyevent KEYCODE_HOME") ;;
       "dumpsys activity activities")
         front="${STUB_FOREGROUND:-$(home)}"
@@ -105,17 +90,6 @@ case "$1" in
         echo "    mResumedActivity: ActivityRecord{1a2b3c u0 $front t7}"
         echo "    mLastResumedActivity: ActivityRecord{4d5e6f u0 com.example/.Old t3}"
         ;;
-      "cat /proc/sys/kernel/random/boot_id") echo "${STUB_BOOT_ID:-boot-1}" ;;
-      "cat /data/local/tmp/tcl-os-home-boot-id")
-        if [[ -f "$STUB_MARKER" ]]; then
-          cat "$STUB_MARKER"
-        else
-          echo "cat: /data/local/tmp/tcl-os-home-boot-id: No such file or directory" >&2
-          exit 1
-        fi
-        ;;
-      "cp /proc/sys/kernel/random/boot_id /data/local/tmp/tcl-os-home-boot-id")
-        echo "${STUB_BOOT_ID:-boot-1}" > "$STUB_MARKER" ;;
       "pm list packages -u --user 0")
         awk '{ print "package:" $2 }' "$STUB_PACKAGES" ;;
       "pm list packages --user 0")
@@ -124,6 +98,10 @@ case "$1" in
         awk '$1 == "disabled" { print "package:" $2 }' "$STUB_PACKAGES" ;;
       "pm disable-user --user 0 "*)
         pkg="${*: -1}"
+        if [[ "$pkg" == "${STUB_DISABLE_FAIL:-}" ]]; then
+          echo "Exception occurred while executing 'disable-user': no permission"
+          exit 1
+        fi
         set_state disabled "$pkg"
         echo "Package $pkg new state: disabled-user"
         ;;

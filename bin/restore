@@ -2,8 +2,8 @@
 # Usage: bin/restore [snapshot | tv-name]
 # Re-enables every package that was enabled in a snapshot from bin/backup but
 # is disabled or uninstalled for user 0 now. It never disables anything, so
-# it only undoes disables, and running it again changes nothing. When it
-# re-enables the stock launcher, it makes it the default Home again.
+# it only undoes disables, and running it again changes nothing. Re-enabling
+# the stock launcher (launcherx) makes it Home again by priority.
 #
 # Pass a snapshot file to restore it to the TV it was taken from. Pass a TV
 # name, or nothing for the first TV, to use that TV's most recent snapshot.
@@ -30,7 +30,6 @@ echo "Restoring ${snapshot#"$TV_ROOT"/} to $name ($serial)"
 
 now="$(tv_packages "$serial")"
 changed=0
-stock_back=""
 while read -r state pkg; do
   [[ "$state" == enabled ]] || continue
   current="$(awk -v p="$pkg" '$2 == p { print $1 }' <<< "$now")"
@@ -44,18 +43,7 @@ while read -r state pkg; do
     || die "'${cmd[*]}' failed: $result"
   echo "enabled $pkg (was $current)"
   changed=$((changed + 1))
-  for stock in "${STOCK_LAUNCHERS[@]}"; do
-    [[ "$pkg" != "$stock" ]] || stock_back="$pkg"
-  done
 done < <(grep -v '^#' "$snapshot")
-
-# Projectivy stays the preferred Home until told otherwise.
-if [[ -n "$stock_back" ]]; then
-  component="$(home_activity_of "$serial" "$stock_back")"
-  [[ -n "$component" ]] || die "the stock launcher is back but has no Home activity"
-  set_home "$serial" "$component"
-  echo "Made $component the default Home again"
-fi
 
 if [[ "$changed" -eq 0 ]]; then
   echo "Nothing to restore: every package enabled in the snapshot is enabled now."

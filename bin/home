@@ -13,7 +13,6 @@ source "$(dirname "$0")/../lib/tv.sh"
 
 HOME_APP_DIR="${HOME_APP_DIR:-$TV_ROOT/home}"
 HOME_APP_KEYSTORE="${HOME_APP_KEYSTORE:-$HOME/.config/tcl-os/home.keystore}"
-HOME_APP_PACKAGE=io.github.james_c_bc.home
 
 # require_java: points JAVA_HOME at a Java 17 install, or exits. Homebrew's
 # openjdk@17 isn't registered with java_home, so look for it too.

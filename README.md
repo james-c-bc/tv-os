@@ -75,11 +75,11 @@ name, e.g. `bin/check bedroom`.
 | Script        | What it does                                                                 |
 | ------------- | ---------------------------------------------------------------------------- |
 | `bin/connect` | Connects to the TV over Wi-Fi ADB (port 5555).                               |
-| `bin/check`   | Prints the TV's model, Android version, firmware, security patch, Home activity and whether the stock launcher is disabled, and the state of every package on the disable list. |
+| `bin/check`   | Prints the TV's model, Android version, firmware, security patch, Home activity and whether launcherx and setupwraith are enabled, and the state of every package on the disable list. |
 | `bin/backup`  | Snapshots every package's state to `backups/<tv-name>/<timestamp>.txt`.      |
 | `bin/restore` | Re-enables packages that were enabled in a snapshot. Never disables anything. |
 | `bin/debloat` | Backs up, then disables the packages on `lists/disable.txt`. Never uninstalls. |
-| `bin/launcher` | Makes Projectivy Launcher the Home screen, then (`disable-stock`, after a reboot) disables the stock launcher. |
+| `bin/launcher` | Makes our Home app the Home screen by disabling the stock launcher, rolling back if Home doesn't land on it. |
 | `bin/sideload` | Installs or updates every APK in `apks/`.                                    |
 | `bin/home`    | Builds our Home app and installs or updates it on the TV.                    |
 
@@ -115,9 +115,9 @@ It never disables anything, so it only undoes disables, and running it twice
 does nothing the second time. Packages installed since the snapshot are left
 alone.
 
-If restore re-enables the stock launcher (`com.google.android.apps.tv.launcherx`
-on RT51M firmware, `com.google.android.tvlauncher` on others), it also makes
-it the default Home again.
+If restore re-enables the stock launcher (`com.google.android.apps.tv.launcherx`),
+it's the Home screen again: it registers Home at a higher priority than our
+app.
 
 ## Debloat
 
@@ -161,42 +161,53 @@ Run this on the TV after each debloat:
 - [ ] Voice search works
 - [ ] A streaming app plays
 
-Once Projectivy is the Home screen (see below), also check:
+Once our Home app is the Home screen (see below), also check:
 
-- [ ] Home button lands on Projectivy
-- [ ] After a reboot, Home still lands on Projectivy
+- [ ] Home button lands on our Home app
+- [ ] After a reboot, Home still lands on our Home app
 
 ## Home screen
 
-Projectivy Launcher replaces the stock Android TV launcher and its ad and
-recommendation rows. Disabling the stock launcher before Projectivy reliably
-owns Home can leave the TV with no usable UI, so this happens in order, with
-a reboot in the middle:
+Our [Home app](#home-app) replaces the stock Android TV launcher and its ad
+and recommendation rows.
 
-1. On the TV, install **Projectivy Launcher** from the Play Store.
-2. Run `bin/launcher`. It makes Projectivy the default Home activity
-   (`cmd package set-home-activity`), presses Home and checks Projectivy comes
-   up. The stock launcher stays enabled.
+On this firmware a default Home can't be chosen while the stock launcher is
+enabled. `com.google.android.apps.tv.launcherx` registers Home at priority 2
+and `com.google.android.tungsten.setupwraith` at priority 1, and installed
+apps are capped at 0, so `cmd package set-home-activity` says Success and is
+ignored. The only way for our app to own Home is to disable both.
+
+1. Install our Home app with `bin/home`.
+2. Run `bin/launcher`. It:
+   1. checks our Home app is installed and enabled, and refuses, changing
+      nothing, if it isn't
+   2. takes a backup with `bin/backup`, if there's anything to disable
+   3. disables launcherx and setupwraith with `pm disable-user --user 0`
+   4. presses Home and checks our app comes to the front
+   5. if it doesn't, re-enables both straight away and fails, so the TV is
+      never left on a broken Home
 3. Reboot the TV (`adb -s <tv-ip>:5555 reboot`), run `bin/connect`, and press
-   Home on the remote. It should land on Projectivy.
-4. Run `bin/launcher disable-stock`. It refuses unless Projectivy is the
-   default Home and the TV has rebooted since step 2. It presses Home again
-   and checks Projectivy comes up, takes a backup, then disables
-   the stock launcher with `pm disable-user --user 0`. That's
-   `com.google.android.apps.tv.launcherx` on RT51M firmware;
-   on other firmware it's `com.google.android.tvlauncher`, along with
-   `com.google.android.tvrecommendations`.
-5. Commit the backup and run the test checklist above.
+   Home on the remote. It should land on our Home app.
+4. Commit the backup and run the test checklist above.
 
-If Home ignores the default and opens the stock launcher, `bin/launcher`
-says so. Then use Projectivy's override mode instead: in Projectivy's
-settings, turn on the option to override the current launcher and allow its
-accessibility service. Leave the stock launcher enabled, and don't run
-`bin/launcher disable-stock`.
+`bin/launcher` is safe to run again: it only disables what's enabled, and
+always checks Home.
+
+If our app is ever missing or disabled, Android falls back to TV Settings'
+FallbackHome (priority -1000), so there's still a Home and adb still works.
+Run `bin/home` to reinstall it.
+
+Disabling launcherx loses the notifications panel and the profile/account
+switcher. Voice search, Google Assistant, Chromecast built-in and the remote's
+app buttons are unaffected.
+
+A firmware update may re-enable launcherx and take Home back. `bin/check`
+shows whether launcherx and setupwraith are enabled; if either is, run
+`bin/launcher` again.
 
 To go back to the stock launcher, run `bin/restore` with the snapshot
-`disable-stock` took. It re-enables the stock launcher and recommendations
-and makes the stock launcher the default Home again.
+`bin/launcher` took. It re-enables launcherx and setupwraith, and launcherx
+wins Home again by priority.
 
 ## Sideload apps
 
@@ -231,8 +242,9 @@ between apps and Select opens one. The grid updates when apps are installed
 or removed, and Back does nothing.
 
 It's Kotlin with plain Android views, targeting Android 11, and it's built
-with the Gradle wrapper in `home/`. For now it opens from the stock
-launcher's app list like any other app; it isn't the Home screen yet.
+with the Gradle wrapper in `home/`. It registers as both a Home activity and
+a normal TV app, so it also opens from the stock launcher's app list.
+`bin/launcher` makes it the Home screen (see [Home screen](#home-screen)).
 
 The firmware won't let Projectivy be the default Home: launcherx and
 setupwraith register Home at higher priority than any installed app can.

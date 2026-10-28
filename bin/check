@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Usage: bin/check [tv-name]
 # Prints what the connected TV is: model, Android version, TCL firmware
-# version, Android build, security patch and the current default Home
-# activity and whether the stock launcher is disabled, then the state of
+# version, Android build, security patch, the current Home activity and
+# whether launcherx and setupwraith are enabled or disabled, then the state of
 # every package on lists/disable.txt.
 set -euo pipefail
 source "$(dirname "$0")/../lib/tv.sh"
@@ -18,15 +18,6 @@ firmware="$(tv getprop ro.software.version_id)"
 
 home="$(home_activity "$serial")"
 now="$(tv_packages "$serial")"
-stock="not on TV"
-for pkg in "${STOCK_LAUNCHERS[@]}"; do
-  state="$(awk -v p="$pkg" '$2 == p { print $1 }' <<< "$now")"
-  if [[ -n "$state" ]]; then
-    stock="$state ($pkg)"
-    break
-  fi
-done
-
 echo "TV:               $serial"
 echo "Model:            $(tv getprop ro.product.model)"
 echo "Android version:  $(tv getprop ro.build.version.release)"
@@ -34,7 +25,11 @@ echo "Firmware:         ${firmware:-unknown}"
 echo "Android build:    $(tv getprop ro.build.display.id)"
 echo "Security patch:   $(tv getprop ro.build.version.security_patch)"
 echo "Home activity:    $home"
-echo "Stock launcher:   $stock"
+# A firmware update may re-enable these, taking Home back from our app.
+for pkg in "${STOCK_HOMES[@]}"; do
+  state="$(awk -v p="$pkg" '$2 == p { print $1 }' <<< "$now")"
+  printf '%-18s%s\n' "${pkg##*.}:" "${state:-not on TV}"
+done
 
 # How much of the debloat has stuck, e.g. after a firmware update.
 disable="$(read_list disable)"
