@@ -1,0 +1,28 @@
+# Packages bin/debloat disables on Sony BRAVIA Google TVs (Android 12, the
+# VH2 chassis), with pm disable-user --user 0. Only the packages rated safe
+# in the research: telemetry, retail demo mode, Sony and Google promo apps.
+# Most evidence is owner reports from the cleanyourtv project on this build:
+# https://github.com/Gathin23/cleanyourtv/tree/main/examples
+# Nothing here may be on never-touch.txt; debloat refuses to run if it is.
+# Undo with bin/restore.
+
+tv.samba.ssm                          # Samba TV ACR: fingerprints what's on screen
+tv.samba.ssm.ui                       # Samba TV UI and consent screens
+com.qterics.da.product                # Qterics device agent (telemetry)
+com.sony.dtv.da.service               # Sony device agent and remote-support sessions
+com.sonyericsson.idd.agent            # Sony IDD usage-data agent
+com.sony.dtv.sonybugreportsys         # Sony bug-report uploader
+com.google.android.feedback           # Google feedback and crash reporter
+com.sony.dtv.demosupport              # Retail demo mode
+com.sony.dtv.demosystemsupport        # Retail demo mode, system part
+com.sony.dtv.multiscreendemo          # Retail multi-screen demo
+com.sony.dtv.promos                   # Sony promo/offers tile
+com.sony.dtv.sonyselect               # Sony Select app promos
+com.sony.dtv.sonytab                  # Sony tab and partner rows on the Google TV home
+com.sony.dtv.customersupport          # Help tile
+com.sony.dtv.smarthelp                # Smart Help tips
+com.sony.dtv.helpguidecontents        # Help guide content
+com.google.android.play.games         # Play Games
+com.google.android.videos             # Google TV Movies store and recommendations
+com.sony.dtv.livingfit                # Living Decor ambient display
+com.google.android.apps.tv.dreamx     # Google TV Ambient screensaver

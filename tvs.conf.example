@@ -1,4 +1,6 @@
 # TVs this Mac manages, one per line: <name> <ip>
 # Copy this file to tvs.conf (git-ignored) and set your TV's fixed IP.
 # Scripts use the first TV unless you pass a name, e.g. bin/check bedroom
+# A TV that isn't a TCL names its own package lists as a third field, e.g.
+# "sony" for lists/sony/.
 living-room  192.168.1.50

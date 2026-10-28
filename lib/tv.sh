@@ -65,6 +65,22 @@ tv_lookup() {
   die "no TVs listed in $TVS_CONF"
 }
 
+# use_lists <name>: points TV_LISTS at the named TV's own package lists. A
+# TV whose tvs.conf line has a third field, e.g. "master-tv 192.168.1.50
+# sony", uses lists/sony/. Any other TV uses lists/ itself.
+use_lists() {
+  local want="$1" name ip set
+  while read -r name ip set _; do
+    [[ "$name" == "$want" ]] || continue
+    if [[ -n "$set" && "$set" != \#* ]]; then
+      [[ "$set" =~ ^[A-Za-z0-9_-]+$ ]] || die "TV '$want' in $TVS_CONF has a bad list name: $set"
+      [[ -d "$TV_LISTS/$set" ]] || die "TV '$want' uses lists/$set/, but there's no $TV_LISTS/$set"
+      TV_LISTS="$TV_LISTS/$set"
+    fi
+    return
+  done < "$TVS_CONF"
+}
+
 # tv_serial [name]: prints the adb serial (ip:port) for a TV.
 tv_serial() {
   local entry

@@ -1,9 +1,15 @@
 # tv-os
 
-Scripts for managing a TCL Android TV from a Mac over Wi-Fi ADB.
+Scripts for managing Android TVs from a Mac over Wi-Fi ADB.
 
-Target: TCL RT51M chassis, Android TV 11 (not Google TV), firmware
-`V8-R51MT05-LF1V620.021315`, security patch March 2024.
+Targets:
+
+- TCL RT51M chassis, Android TV 11 (not Google TV), firmware
+  `V8-R51MT05-LF1V620.021315`, security patch March 2024. Everything here
+  was worked out on this TV.
+- Sony BRAVIA 4K VH2, Google TV on Android 12, build
+  `BRAVIA_VH2_M_PA-user 12 STT2.230505.001.S136`. So far it has its own
+  debloat lists ([Sony lists](#sony-lists)) and nothing else is tested on it.
 
 Everything is plain bash, and the only dependency is `adb`, except for our
 Home app in `home/`, which also needs Java and the Android SDK to build (see
@@ -52,6 +58,14 @@ cp tvs.conf.example tvs.conf
 
 Edit `tvs.conf` and put in your TV's IP. It holds one TV per line
 (`<name> <ip>`), so you can add more TVs later. `tvs.conf` is git-ignored.
+
+A TV that isn't a TCL gets a third field naming its own package lists, so
+debloat doesn't use the TCL ones on it:
+
+```
+master-tv   192.168.1.50  sony   # lists/sony/
+bedroom-tv  192.168.1.51         # lists/
+```
 
 ### 5. Connect
 
@@ -166,6 +180,28 @@ done
 
 Keep the disable list conservative. Before you add a package, find out what it
 does, and run the test checklist below afterwards.
+
+### Sony lists
+
+`lists/sony/` holds the lists for a Sony BRAVIA Google TV. A TV uses them
+when its `tvs.conf` line ends in `sony`. They're more cautious than the TCL
+ones:
+
+- `disable.txt` has only telemetry (Samba TV, Sony and Qterics agents),
+  retail demo mode, Sony and Google promo apps, help tiles, Play Games,
+  Google TV Movies, Living Decor and the Google TV screensaver. Most of the
+  evidence is owner reports on the same firmware from the
+  [cleanyourtv](https://github.com/Gathin23/cleanyourtv/tree/main/examples)
+  project.
+- `never-touch.txt` includes `com.sony.dtv.tvx`, Sony's TV player, because
+  HDMI stops working without it. It also covers the `com.sony.dtv.tvinput.*`
+  input services, BRAVIA Sync, and launcherx and setupwraith, which only
+  `bin/launcher` should touch.
+
+Point the screensaver at the basic one before debloating, as above.
+
+On Google TV, Play Protect rejects `bin/home`'s install. Turn off
+**Settings → System → Developer options → Verify apps over USB** first.
 
 ### Test checklist
 

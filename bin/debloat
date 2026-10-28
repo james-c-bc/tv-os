@@ -2,7 +2,8 @@
 # Usage: bin/debloat [tv-name]
 # Disables every package on lists/disable.txt that's enabled on the TV, with
 # pm disable-user --user 0. It never uninstalls anything, and it refuses to
-# run if a package on the disable list is also on lists/never-touch.txt.
+# run if a package on the disable list is also on lists/never-touch.txt. A TV
+# with its own lists in tvs.conf (e.g. "sony") uses lists/sony/ instead.
 #
 # It backs up the TV with bin/backup before it changes anything. Running it
 # again changes nothing, so re-run it after a firmware update re-enables
@@ -15,6 +16,7 @@ entry="$(tv_lookup "${1:-}")"
 name="${entry%% *}"
 serial="${entry#* }:$ADB_PORT"
 require_connected "$serial"
+use_lists "$name"
 
 disable="$(read_list disable)"
 never="$(read_list never-touch)"

@@ -3,13 +3,16 @@
 # Prints what the connected TV is: model, Android version, TCL firmware
 # version, Android build, security patch, the current Home activity and
 # whether launcherx and setupwraith are enabled or disabled, then the state of
-# every package on lists/disable.txt.
+# every package on the TV's disable list (lists/disable.txt, or its own lists
+# from tvs.conf).
 set -euo pipefail
 source "$(dirname "$0")/../lib/tv.sh"
 
 require_adb
-serial="$(tv_serial "${1:-}")"
+entry="$(tv_lookup "${1:-}")"
+serial="${entry#* }:$ADB_PORT"
 require_connected "$serial"
+use_lists "${entry%% *}"
 
 tv() { adb -s "$serial" shell "$@" | tr -d '\r'; }
 

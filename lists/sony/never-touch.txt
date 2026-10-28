@@ -1,0 +1,41 @@
+# Sony BRAVIA packages bin/debloat must never disable: HDMI inputs and the
+# player that shows them, BRAVIA Sync (HDMI-CEC), TV middleware, picture and
+# sound settings, the remote and Bluetooth, firmware updates, Play services,
+# core Android, Chromecast built-in, Assistant and voice. launcherx and
+# setupwraith are here too: bin/launcher, not debloat, decides about those.
+
+com.sony.dtv.tvinput.external           # HDMI and AV inputs (ExternalTvInputService)
+com.sony.dtv.tvinput.hardwaremanager    # TV input hardware manager
+com.sony.dtv.tvinput.tuner              # Tuner input
+com.sony.dtv.tvinput.provider           # Channel provider
+com.sony.dtv.tvx                        # Sony TV player: shows HDMI and the tuner, switches inputs
+com.android.providers.tv                # TV input framework channel store
+com.sony.dtv.tvapi                      # TV middleware
+com.sony.dtv.braviasyncmenu             # BRAVIA Sync (HDMI-CEC) menu
+com.sony.dtv.braviasyncservice          # BRAVIA Sync (HDMI-CEC) service
+com.sony.dtv.braviasyncsetting          # BRAVIA Sync (HDMI-CEC) settings
+com.sony.dtv.sonysystemservice          # Sony system services
+com.sony.dtv.imeproxy                   # Keyboard proxy
+com.sony.dtv.settingsprovider           # Sony settings store
+com.sony.dtv.settings                   # Sony picture and sound settings
+com.android.tv.settings                 # Android TV Settings
+com.sony.dtv.audiooutput                # Audio routing
+com.sony.dtv.remotecontrolsettings      # Remote control settings
+com.sony.dtv.irblaster                  # IR blaster
+com.sony.dtv.irbservice                 # IR blaster service
+com.android.bluetooth                   # Bluetooth, including the remote
+com.sony.dtv.systemupdate               # Firmware updates
+com.sony.dtv.update                     # Firmware updates
+com.google.android.gms                  # Google Play services
+com.google.android.gsf                  # Google services framework
+com.android.vending                     # Play Store
+android                                 # Android itself
+com.android.systemui                    # System UI
+com.android.providers.settings          # Settings store
+com.google.android.apps.mediashell      # Chromecast built-in
+com.google.android.katniss              # Google Assistant and voice search
+com.sony.dtv.voicesearch                # Sony voice search
+com.sony.dtv.assistantadapter           # Assistant adapter
+com.google.android.tv.remote.service    # Phone remote (Google TV app)
+com.google.android.apps.tv.launcherx    # Google TV home: bin/launcher handles it
+com.google.android.tungsten.setupwraith # Setup wizard: bin/launcher handles it

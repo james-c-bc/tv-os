@@ -362,6 +362,34 @@ expect "debloat changes nothing when it refuses" \
   bash -c "! grep -q disable-user '$STUB_LOG'"
 expect "debloat takes no backup when it refuses" test ! -e "$TV_BACKUPS"
 
+reset
+export STUB_STATE=device
+echo "bedroom  192.168.1.51  sony  # Sony BRAVIA" >> "$TVS_CONF"
+export STUB_SERIAL=192.168.1.51:5555
+packages "enabled com.tcl.ads" "enabled tv.samba.ssm"
+lists "com.tcl.ads  # TCL ads" --
+mkdir -p "$TV_LISTS/sony"
+echo "tv.samba.ssm  # Samba TV" > "$TV_LISTS/sony/disable.txt"
+echo "com.sony.dtv.tvx  # HDMI" > "$TV_LISTS/sony/never-touch.txt"
+run "$root/bin/debloat" bedroom
+expect "debloat uses a TV's own lists from tvs.conf" \
+  grep -qx "disabled tv.samba.ssm" "$STUB_PACKAGES"
+expect "debloat leaves the default lists alone for a TV with its own" \
+  grep -qx "enabled com.tcl.ads" "$STUB_PACKAGES"
+run "$root/bin/check" bedroom
+expect "check reports a TV's own disable list" contains "tv.samba.ssm"
+expect "check leaves out the default list for a TV with its own" bash -c "! grep -q com.tcl.ads <<< \"\$0\"" "$out"
+unset STUB_SERIAL
+
+reset
+export STUB_STATE=device
+echo "bedroom  192.168.1.51  lg" >> "$TVS_CONF"
+export STUB_SERIAL=192.168.1.51:5555
+run "$root/bin/debloat" bedroom
+expect "debloat fails when a TV's own lists don't exist" test "$code" -ne 0
+expect "debloat names the missing lists" contains "lists/lg/"
+unset STUB_SERIAL
+
 # --- launcher ---
 
 LAUNCHERX=com.google.android.apps.tv.launcherx
