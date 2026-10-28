@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Usage: bin/backup [tv-name]
 # Snapshots every package on the TV and whether it's enabled, disabled or
-# uninstalled for user 0, to backups/<tv-name>/<timestamp>.txt. Commit the
-# snapshot so git history records the TV's state before each change.
+# uninstalled for user 0, to backups/<tv-name>/<timestamp>.txt (git-ignored).
 set -euo pipefail
 source "$(dirname "$0")/../lib/tv.sh"
 

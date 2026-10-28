@@ -99,11 +99,10 @@ name, e.g. `bin/check bedroom`.
 
 ## Backup and restore
 
-Take a backup before changing anything on the TV, and commit it:
+Take a backup before changing anything on the TV:
 
 ```sh
 bin/backup
-git add backups && git commit -m "Back up living-room before debloat"
 ```
 
 A snapshot lists every package on the TV, one per line, with its state:
@@ -112,8 +111,8 @@ A snapshot lists every package on the TV, one per line, with its state:
 - `disabled`: disabled with `pm disable-user --user 0`
 - `uninstalled`: still on the system but removed with `pm uninstall --user 0`
 
-Snapshots hold only package names, so they're safe to commit. Git history then
-records what the TV looked like before each change.
+`backups/` is git-ignored, because a snapshot lists every app installed on
+your TV. Snapshots stay on your Mac; keep the folder if you might want to undo.
 
 To undo changes, restore a snapshot:
 
@@ -137,7 +136,6 @@ app.
 
 ```sh
 bin/debloat
-git add backups && git commit -m "Back up living-room before debloat"
 ```
 
 Debloat turns off ads, recommendation rows, telemetry and TCL promo apps. It
@@ -242,7 +240,7 @@ ignored. The only way for our app to own Home is to disable both.
       never left on a broken Home
 3. Reboot the TV (`adb -s <tv-ip>:5555 reboot`), run `bin/connect`, and press
    Home on the remote. It should land on our Home app.
-4. Commit the backup and run the test checklist above.
+4. Run the test checklist above.
 
 `bin/launcher` is safe to run again: it only disables what's enabled, and
 always checks Home.
@@ -429,3 +427,15 @@ The tests run the scripts against a fake `adb` in `test/stub/`, so they don't
 need a TV. `bin/home` runs against a fake Gradle and `keytool` too, so they
 don't need Java or the SDK either. The Home app has its own
 [unit tests](#unit-tests).
+
+## Use at your own risk
+
+These scripts disable system packages on your TV. Everything they do can be
+undone with `bin/restore`, and nothing is ever uninstalled, but they were only
+tested on the two TVs listed at the top. On other models, review
+`lists/disable.txt` against `bin/check` before running `bin/debloat`, and take
+a backup first.
+
+## License
+
+[MIT](LICENSE)

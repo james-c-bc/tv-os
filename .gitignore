@@ -2,3 +2,5 @@
 tvs.conf
 # APKs to sideload with bin/sideload. Never committed.
 apks/
+# Package snapshots from bin/backup. They list the apps on your TV.
+backups/
