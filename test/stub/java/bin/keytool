@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Fake keytool for bin/home tests: "creates" the keystore -keystore names.
+# Logs its arguments to $STUB_LOG.
+
+echo "keytool $*" >> "${STUB_LOG:-/dev/null}"
+while [[ $# -gt 0 ]]; do
+  if [[ "$1" == -keystore ]]; then
+    echo keystore > "$2"
+  fi
+  shift
+done

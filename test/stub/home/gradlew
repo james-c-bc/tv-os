@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Fake Gradle wrapper for bin/home tests. Run from a copy of this folder.
+#   STUB_BUILD_FAIL  set -> the build fails
+# Logs its arguments and the key it was given to $STUB_LOG.
+
+echo "gradlew $* keystore=${HOME_APP_KEYSTORE:-} password=${HOME_APP_KEYSTORE_PASSWORD:-}" \
+  >> "${STUB_LOG:-/dev/null}"
+if [[ -n "${STUB_BUILD_FAIL:-}" ]]; then
+  echo "e: HomeActivity.kt:1:1 Unresolved reference: oops" >&2
+  exit 1
+fi
+mkdir -p build/outputs/apk/release
+echo apk > build/outputs/apk/release/home-release.apk

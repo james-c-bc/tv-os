@@ -14,6 +14,11 @@ export TV_LISTS="$tmp/lists"
 export STUB_HOME="$tmp/home"
 export STUB_MARKER="$tmp/marker"
 export TV_APKS="$tmp/apks"
+export HOME_APP_DIR="$tmp/home-app"
+export HOME_APP_KEYSTORE="$tmp/config/home.keystore"
+export JAVA_HOME="$root/test/stub/java"
+export ANDROID_HOME="$tmp/sdk"
+mkdir -p "$ANDROID_HOME/platforms"
 export LAUNCHER_SETTLE=0
 
 pass=0
@@ -37,9 +42,12 @@ contains() { [[ "$out" == *"$1"* ]]; }
 
 reset() {
   : > "$STUB_LOG"
-  rm -rf "$TV_BACKUPS" "$TV_LISTS" "$STUB_HOME" "$STUB_MARKER" "$TV_APKS"
+  rm -rf "$TV_BACKUPS" "$TV_LISTS" "$STUB_HOME" "$STUB_MARKER" "$TV_APKS" \
+    "$HOME_APP_DIR" "$(dirname "$HOME_APP_KEYSTORE")"
+  mkdir -p "$HOME_APP_DIR"
+  cp "$root/test/stub/home/gradlew" "$HOME_APP_DIR/"
   unset STUB_CONNECT STUB_STATE STUB_SERIAL STUB_FIRMWARE STUB_FOREGROUND STUB_BOOT_ID
-  unset STUB_INSTALL_FAIL
+  unset STUB_INSTALL_FAIL STUB_BUILD_FAIL
   cat > "$TVS_CONF" <<'EOF'
 # name  ip
 living-room  192.168.1.50
@@ -532,6 +540,65 @@ expect "sideload says which APK failed and why" \
   contains "FAILED kodi.APK: adb: failed to install"
 expect "sideload still installs the other APKs" contains "ok     Smart Tube.apk"
 expect "sideload counts the failures" contains "1 of 2 APK(s) failed to install"
+
+# --- home ---
+
+home_apk="$HOME_APP_DIR/build/outputs/apk/release/home-release.apk"
+
+reset
+run "$root/bin/home"
+expect "home fails when no TV is connected" test "$code" -ne 0
+expect "home says no TV is connected" contains "No TV connected at 192.168.1.50:5555"
+expect "home builds nothing when no TV is connected" bash -c "! grep -q gradlew '$STUB_LOG'"
+
+reset
+export STUB_STATE=device
+run "$root/bin/home"
+expect "home succeeds" test "$code" -eq 0
+expect "home creates a signing key on first run" test -f "$HOME_APP_KEYSTORE"
+expect "home makes the key with keytool" \
+  grep -q "keytool -genkeypair -noprompt -keystore $HOME_APP_KEYSTORE" "$STUB_LOG"
+expect "home keeps the key's password next to it" test -s "$HOME_APP_KEYSTORE.password"
+expect "home keeps the key private" test "$(stat -f %Lp "$HOME_APP_KEYSTORE")" == 600
+expect "home keeps the password private" \
+  test "$(stat -f %Lp "$HOME_APP_KEYSTORE.password")" == 600
+expect "home builds a release APK" grep -q "gradlew .*assembleRelease" "$STUB_LOG"
+expect "home signs with the key and its password" \
+  grep -q "keystore=$HOME_APP_KEYSTORE password=$(cat "$HOME_APP_KEYSTORE.password")$" "$STUB_LOG"
+expect "home installs the APK with install -r" \
+  grep -qx -- "-s 192.168.1.50:5555 install -r $home_apk" "$STUB_LOG"
+expect "home says it installed" contains "Installed Home"
+
+password="$(cat "$HOME_APP_KEYSTORE.password")"
+: > "$STUB_LOG"
+run "$root/bin/home"
+expect "home again updates without errors" test "$code" -eq 0
+expect "home reuses the signing key" bash -c "! grep -q keytool '$STUB_LOG'"
+expect "home reuses the key's password" test "$password" == "$(cat "$HOME_APP_KEYSTORE.password")"
+expect "home installs again" grep -q "install -r $home_apk" "$STUB_LOG"
+
+export STUB_BUILD_FAIL=1
+: > "$STUB_LOG"
+rm -f "$home_apk"
+run "$root/bin/home"
+expect "home fails when the build fails" test "$code" -ne 0
+expect "home shows the build error" contains "Unresolved reference: oops"
+expect "home installs nothing when the build fails" bash -c "! grep -q install '$STUB_LOG'"
+unset STUB_BUILD_FAIL
+
+export STUB_INSTALL_FAIL=home
+run "$root/bin/home"
+expect "home fails when the TV has Home signed with another key" test "$code" -ne 0
+expect "home says how to uninstall the old Home" \
+  contains "adb -s 192.168.1.50:5555 uninstall io.github.james_c_bc.home"
+
+reset
+export STUB_STATE=device
+mkdir -p "$(dirname "$HOME_APP_KEYSTORE")"
+echo keystore > "$HOME_APP_KEYSTORE"
+run "$root/bin/home"
+expect "home fails when the key's password is missing" test "$code" -ne 0
+expect "home says where the password should be" contains "no password for $HOME_APP_KEYSTORE"
 
 echo
 echo "$pass passed, $fail failed"

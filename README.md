@@ -5,7 +5,9 @@ Scripts for managing a TCL Android TV from a Mac over Wi-Fi ADB.
 Target: TCL RT51M chassis, Android TV 11 (not Google TV), firmware
 `V8-R51MT05-LF1V620.021315`, security patch March 2024.
 
-Everything is plain bash. The only dependency is `adb`.
+Everything is plain bash, and the only dependency is `adb`, except for our
+Home app in `home/`, which also needs Java and the Android SDK to build (see
+[Home app](#home-app)).
 
 ## Setup
 
@@ -79,6 +81,7 @@ name, e.g. `bin/check bedroom`.
 | `bin/debloat` | Backs up, then disables the packages on `lists/disable.txt`. Never uninstalls. |
 | `bin/launcher` | Makes Projectivy Launcher the Home screen, then (`disable-stock`, after a reboot) disables the stock launcher. |
 | `bin/sideload` | Installs or updates every APK in `apks/`.                                    |
+| `bin/home`    | Builds our Home app and installs or updates it on the TV.                    |
 
 ## Backup and restore
 
@@ -219,6 +222,76 @@ An update fails with `INSTALL_FAILED_UPDATE_INCOMPATIBLE` when the new APK is
 signed with a different key than the installed app, e.g. it came from a
 different source. Uninstall the app on the TV, then run `bin/sideload` again.
 
+## Home app
+
+`home/` holds our own minimal Home app, "Home" (`io.github.james_c_bc.home`):
+every installed TV app as its banner, five per row, alphabetical, on a dark
+background. Apps without a banner show their icon and name. D-pad moves
+between apps and Select opens one. The grid updates when apps are installed
+or removed, and Back does nothing.
+
+It's Kotlin with plain Android views, targeting Android 11, and it's built
+with the Gradle wrapper in `home/`. For now it opens from the stock
+launcher's app list like any other app; it isn't the Home screen yet.
+
+The firmware won't let Projectivy be the default Home: launcherx and
+setupwraith register Home at higher priority than any installed app can.
+That's why this app exists.
+
+### Setup
+
+Building it needs two things the other scripts don't:
+
+1. Java 17:
+
+   ```sh
+   brew install --cask temurin@17
+   ```
+
+   Homebrew's `openjdk@17` formula works too.
+
+2. The Android SDK platform and build tools, installed with `sdkmanager`:
+
+   ```sh
+   brew install --cask android-commandlinetools
+   sdkmanager "platforms;android-36" "build-tools;35.0.0"
+   ```
+
+   `bin/home` finds an SDK in `$ANDROID_HOME`, `~/Library/Android/sdk` (Android
+   Studio's) or Homebrew's `android-commandlinetools`.
+
+### Build and install
+
+```sh
+bin/home
+```
+
+It builds the app, signs it, and installs it with `adb install -r`. Run it
+again after changing the app to update it.
+
+The app is signed with a key in `~/.config/tcl-os/home.keystore`, with its
+password in `home.keystore.password` next to it. The first run creates both.
+Neither is ever in the repo. The app stores nothing, so if the key is lost,
+`bin/home` can't update the installed app: uninstall it with
+`adb -s <tv-ip>:5555 uninstall io.github.james_c_bc.home`, then run
+`bin/home` again.
+
+### Unit tests
+
+```sh
+cd home && ./gradlew test
+```
+
+They run on the Mac's JVM and cover the logic that isn't UI (the order of
+the grid). Unlike `bin/home`, Gradle doesn't go looking for Java and the
+SDK, so point it at them first if `java -version` isn't 17 or `ANDROID_HOME`
+is unset:
+
+```sh
+export JAVA_HOME=$(/usr/libexec/java_home -v 17)
+export ANDROID_HOME=/opt/homebrew/share/android-commandlinetools
+```
+
 ## Tests
 
 ```sh
@@ -226,4 +299,6 @@ test/run.sh
 ```
 
 The tests run the scripts against a fake `adb` in `test/stub/`, so they don't
-need a TV.
+need a TV. `bin/home` runs against a fake Gradle and `keytool` too, so they
+don't need Java or the SDK either. The Home app has its own
+[unit tests](#unit-tests).

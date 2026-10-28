@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+# Usage: bin/home [tv-name]
+# Builds our Home app in home/, signs it, and installs or updates it on the
+# TV with adb install -r.
+#
+# The signing key lives outside git, in ~/.config/tcl-os/home.keystore, with
+# its password next to it. The first run creates both. Home stores nothing,
+# so if the key is lost, uninstall Home on the TV and run bin/home again.
+#
+# Needs Java 17 and the Android SDK as well as adb: see the README.
+set -euo pipefail
+source "$(dirname "$0")/../lib/tv.sh"
+
+HOME_APP_DIR="${HOME_APP_DIR:-$TV_ROOT/home}"
+HOME_APP_KEYSTORE="${HOME_APP_KEYSTORE:-$HOME/.config/tcl-os/home.keystore}"
+HOME_APP_PACKAGE=io.github.james_c_bc.home
+
+# require_java: points JAVA_HOME at a Java 17 install, or exits. Homebrew's
+# openjdk@17 isn't registered with java_home, so look for it too.
+require_java() {
+  local candidate
+  for candidate in "${JAVA_HOME:-}" "$(/usr/libexec/java_home -v 17 2> /dev/null || true)" \
+    /opt/homebrew/opt/openjdk@17 /usr/local/opt/openjdk@17; do
+    if [[ -n "$candidate" && -x "$candidate/bin/keytool" ]]; then
+      export JAVA_HOME="$candidate"
+      return
+    fi
+  done
+  die "Java 17 not found. Install it with: brew install --cask temurin@17"
+}
+
+# require_sdk: points ANDROID_HOME at an Android SDK, or exits.
+require_sdk() {
+  local candidate
+  for candidate in "${ANDROID_HOME:-}" "${ANDROID_SDK_ROOT:-}" "$HOME/Library/Android/sdk" \
+    /opt/homebrew/share/android-commandlinetools /usr/local/share/android-commandlinetools; do
+    if [[ -n "$candidate" && -d "$candidate/platforms" ]]; then
+      export ANDROID_HOME="$candidate"
+      return
+    fi
+  done
+  die "Android SDK not found. Install it as the README says, or set ANDROID_HOME."
+}
+
+require_adb
+serial="$(tv_serial "${1:-}")"
+require_connected "$serial"
+require_java
+require_sdk
+
+password_file="$HOME_APP_KEYSTORE.password"
+if [[ ! -f "$HOME_APP_KEYSTORE" ]]; then
+  echo "Creating a signing key at $HOME_APP_KEYSTORE"
+  mkdir -p "$(dirname "$HOME_APP_KEYSTORE")"
+  (
+    umask 077
+    openssl rand -hex 16 > "$password_file"
+    "$JAVA_HOME/bin/keytool" -genkeypair -noprompt -keystore "$HOME_APP_KEYSTORE" \
+      -storetype PKCS12 -storepass:file "$password_file" -alias home \
+      -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=tcl-os Home" > /dev/null 2>&1
+  ) || die "couldn't create the signing key at $HOME_APP_KEYSTORE"
+fi
+[[ -f "$password_file" ]] \
+  || die "no password for $HOME_APP_KEYSTORE at $password_file. Delete the keystore, uninstall Home on the TV, and run bin/home again."
+
+echo "Building Home"
+(
+  cd "$HOME_APP_DIR"
+  HOME_APP_KEYSTORE="$HOME_APP_KEYSTORE" \
+    HOME_APP_KEYSTORE_PASSWORD="$(cat "$password_file")" \
+    ./gradlew --console=plain --quiet assembleRelease
+) || die "the build failed"
+apk="$HOME_APP_DIR/build/outputs/apk/release/home-release.apk"
+[[ -f "$apk" ]] || die "the build made no APK at $apk"
+
+# adb install prints "Success" when it works, and the reason when it
+# doesn't, e.g. "Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: ...]".
+result="$(adb -s "$serial" install -r "$apk" 2>&1 | tr -d '\r')" || true
+if [[ "$result" != *Success* ]]; then
+  if [[ "$result" == *INSTALL_FAILED_UPDATE_INCOMPATIBLE* ]]; then
+    die "Home on the TV was signed with a different key. Uninstall it with: adb -s $serial uninstall $HOME_APP_PACKAGE, then run bin/home again."
+  fi
+  die "couldn't install Home: $(grep -v '^Performing' <<< "$result" | tail -n 1)"
+fi
+echo "Installed Home. Open it from the TV's app list."
