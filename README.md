@@ -74,6 +74,40 @@ name, e.g. `bin/check bedroom`.
 | ------------- | ---------------------------------------------------------------------------- |
 | `bin/connect` | Connects to the TV over Wi-Fi ADB (port 5555).                               |
 | `bin/check`   | Prints the TV's model, Android version, firmware, security patch and Home activity. |
+| `bin/backup`  | Snapshots every package's state to `backups/<tv-name>/<timestamp>.txt`.      |
+| `bin/restore` | Re-enables packages that were enabled in a snapshot. Never disables anything. |
+
+## Backup and restore
+
+Take a backup before changing anything on the TV, and commit it:
+
+```sh
+bin/backup
+git add backups && git commit -m "Back up living-room before debloat"
+```
+
+A snapshot lists every package on the TV, one per line, with its state:
+
+- `enabled`: installed and enabled
+- `disabled`: disabled with `pm disable-user --user 0`
+- `uninstalled`: still on the system but removed with `pm uninstall --user 0`
+
+Snapshots hold only package names, so they're safe to commit. Git history then
+records what the TV looked like before each change.
+
+To undo changes, restore a snapshot:
+
+```sh
+bin/restore                                        # first TV's latest snapshot
+bin/restore bedroom                                # bedroom's latest snapshot
+bin/restore backups/living-room/2026-10-28-134500.txt  # a specific snapshot
+```
+
+Restore re-enables every package that was `enabled` in the snapshot but is
+disabled now (`pm enable`) or uninstalled now (`cmd package install-existing`).
+It never disables anything, so it only undoes disables, and running it twice
+does nothing the second time. Packages installed since the snapshot are left
+alone.
 
 ## Tests
 

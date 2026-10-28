@@ -9,6 +9,7 @@ TV_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TVS_CONF="${TVS_CONF:-$TV_ROOT/tvs.conf}"
 ADB_PORT=5555
 ADB_CONNECT_TIMEOUT="${ADB_CONNECT_TIMEOUT:-10}"
+TV_BACKUPS="${TV_BACKUPS:-$TV_ROOT/backups}"
 
 die() {
   echo "error: $*" >&2
@@ -87,4 +88,34 @@ require_connected() {
     *)
       die "TV at $1 is $(tv_state "$1"). Run bin/connect to reconnect." ;;
   esac
+}
+
+# tv_packages <serial>: prints "<state> <package>" for every package on the
+# TV, sorted by package. State is one of:
+#   enabled      installed for user 0 and enabled
+#   disabled     installed for user 0 but disabled (pm disable-user)
+#   uninstalled  still on the system but removed for user 0 (pm uninstall --user 0)
+tv_packages() {
+  local serial="$1" packages
+  list() { # list <tag> [pm flags]: prints "<tag> <package>" per package
+    local tag="$1"
+    shift
+    adb -s "$serial" shell pm list packages "$@" --user 0 \
+      | tr -d '\r' | sed -n "s/^package:/$tag /p"
+  }
+  packages="$(
+    { list all -u && list installed && list disabled -d; } | awk '
+      $1 == "all" { all[$2] = 1 }
+      $1 == "installed" { inst[$2] = 1 }
+      $1 == "disabled" { dis[$2] = 1 }
+      END {
+        for (p in all) {
+          if (!(p in inst)) print "uninstalled", p
+          else if (p in dis) print "disabled", p
+          else print "enabled", p
+        }
+      }' | sort -k 2
+  )" || return 1
+  [[ -n "$packages" ]] || die "the TV at $serial listed no packages"
+  echo "$packages"
 }

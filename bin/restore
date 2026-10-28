@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# Usage: bin/restore [snapshot | tv-name]
+# Re-enables every package that was enabled in a snapshot from bin/backup but
+# is disabled or uninstalled for user 0 now. It never disables anything, so
+# it only undoes disables, and running it again changes nothing.
+#
+# Pass a snapshot file to restore it to the TV it was taken from. Pass a TV
+# name, or nothing for the first TV, to use that TV's most recent snapshot.
+set -euo pipefail
+source "$(dirname "$0")/../lib/tv.sh"
+
+require_adb
+arg="${1:-}"
+if [[ -f "$arg" ]]; then
+  snapshot="$arg"
+  name="$(sed -n 's/^# tv: //p' "$snapshot" | head -n 1)"
+  [[ -n "$name" ]] || die "$snapshot isn't a snapshot from bin/backup (no '# tv:' line)"
+else
+  entry="$(tv_lookup "$arg")"
+  name="${entry%% *}"
+  snapshot="$(ls "$TV_BACKUPS/$name"/*.txt 2> /dev/null | sort | tail -n 1)" \
+    || true
+  [[ -n "$snapshot" ]] || die "no snapshots for $name in $TV_BACKUPS/$name. Run bin/backup first."
+fi
+serial="$(tv_serial "$name")"
+require_connected "$serial"
+
+echo "Restoring ${snapshot#"$TV_ROOT"/} to $name ($serial)"
+
+now="$(tv_packages "$serial")"
+changed=0
+while read -r state pkg; do
+  [[ "$state" == enabled ]] || continue
+  current="$(awk -v p="$pkg" '$2 == p { print $1 }' <<< "$now")"
+  case "$current" in
+    enabled) continue ;;
+    disabled) cmd=(pm enable --user 0 "$pkg") ;;
+    uninstalled) cmd=(cmd package install-existing --user 0 "$pkg") ;;
+    "") echo "skip    $pkg (no longer on the TV)"; continue ;;
+  esac
+  result="$(adb -s "$serial" shell "${cmd[@]}" 2>&1 | tr -d '\r')" \
+    || die "'${cmd[*]}' failed: $result"
+  echo "enabled $pkg (was $current)"
+  changed=$((changed + 1))
+done < <(grep -v '^#' "$snapshot")
+
+if [[ "$changed" -eq 0 ]]; then
+  echo "Nothing to restore: every package enabled in the snapshot is enabled now."
+else
+  echo "Re-enabled $changed package(s)."
+fi

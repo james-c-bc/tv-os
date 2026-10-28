@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Usage: bin/backup [tv-name]
+# Snapshots every package on the TV and whether it's enabled, disabled or
+# uninstalled for user 0, to backups/<tv-name>/<timestamp>.txt. Commit the
+# snapshot so git history records the TV's state before each change.
+set -euo pipefail
+source "$(dirname "$0")/../lib/tv.sh"
+
+require_adb
+entry="$(tv_lookup "${1:-}")"
+name="${entry%% *}"
+serial="${entry#* }:$ADB_PORT"
+require_connected "$serial"
+
+packages="$(tv_packages "$serial")"
+firmware="$(adb -s "$serial" shell getprop ro.software.version_id | tr -d '\r')"
+
+dir="$TV_BACKUPS/$name"
+file="$dir/$(date +%Y-%m-%d-%H%M%S).txt"
+mkdir -p "$dir"
+[[ ! -e "$file" ]] || die "$file already exists. Wait a second and try again."
+
+{
+  echo "# tv: $name"
+  echo "# serial: $serial"
+  echo "# firmware: ${firmware:-unknown}"
+  echo "# taken: $(date '+%Y-%m-%d %H:%M:%S %z')"
+  echo "# <state> <package>"
+  echo "$packages"
+} > "$file"
+
+count() { grep -c "^$1 " <<< "$packages" || true; }
+echo "Saved $(wc -l <<< "$packages" | tr -d ' ') packages" \
+  "($(count enabled) enabled, $(count disabled) disabled, $(count uninstalled) uninstalled)"
+echo "to ${file#"$TV_ROOT"/}"

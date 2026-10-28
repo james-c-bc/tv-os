@@ -6,9 +6,17 @@
 #   STUB_STATE    device state `devices` lists (unset -> no devices)
 #   STUB_SERIAL   serial `devices` lists (default 192.168.1.50:5555)
 #   STUB_HOME     what `resolve-activity --brief` prints on its last line
+#   STUB_PACKAGES file of "<state> <package>" lines (enabled, disabled or
+#                 uninstalled) the pm commands read and update
 # Every invocation is appended to $STUB_LOG.
 
 echo "$*" >> "${STUB_LOG:-/dev/null}"
+
+# set_state <state> <package>: updates a package in $STUB_PACKAGES
+set_state() {
+  awk -v s="$1" -v p="$2" '$2 == p { $1 = s } { print }' "$STUB_PACKAGES" \
+    > "$STUB_PACKAGES.new" && mv "$STUB_PACKAGES.new" "$STUB_PACKAGES"
+}
 
 serial=""
 if [[ "$1" == "-s" ]]; then
@@ -44,6 +52,22 @@ case "$1" in
       cmd\ package\ resolve-activity*)
         echo "priority=0 preferredOrder=0 match=0x108000 specificIndex=-1 isDefault=true"
         echo "${STUB_HOME:-com.google.android.tvlauncher/.MainActivity}"
+        ;;
+      "pm list packages -u --user 0")
+        awk '{ print "package:" $2 }' "$STUB_PACKAGES" ;;
+      "pm list packages --user 0")
+        awk '$1 != "uninstalled" { print "package:" $2 }' "$STUB_PACKAGES" ;;
+      "pm list packages -d --user 0")
+        awk '$1 == "disabled" { print "package:" $2 }' "$STUB_PACKAGES" ;;
+      "pm enable --user 0 "*)
+        pkg="${*: -1}"
+        set_state enabled "$pkg"
+        echo "Package $pkg new state: enabled"
+        ;;
+      "cmd package install-existing --user 0 "*)
+        pkg="${*: -1}"
+        set_state enabled "$pkg"
+        echo "Package $pkg installed for user: 0"
         ;;
       *) echo "stub adb: unexpected shell command: $*" >&2; exit 1 ;;
     esac
