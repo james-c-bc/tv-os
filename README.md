@@ -247,6 +247,21 @@ ignored. The only way for our app to own Home is to disable both.
 `bin/launcher` is safe to run again: it only disables what's enabled, and
 always checks Home.
 
+On a Google TV, check who saved the TV's Wi-Fi network first. Disabling
+setupwraith deletes any network it saved during setup, so the TV drops off
+Wi-Fi (and adb) partway through `bin/launcher`, before it can check Home or
+roll back. That happened on the Sony:
+
+```sh
+adb -s <tv-ip>:5555 shell dumpsys wifi | grep -E 'SSID|cname='
+```
+
+If the network you're on shows `cname=com.google.android.tungsten.setupwraith`,
+forget it and join it again in **Settings → Network & Internet** (a hidden
+network needs **Add new network**). It then shows
+`cname=com.android.tv.settings` and survives. If the TV has already dropped
+off, join the network again from Home's Settings tile with the remote.
+
 If our app is ever missing or disabled, Android falls back to TV Settings'
 FallbackHome (priority -1000), so there's still a Home and adb still works.
 Run `bin/home` to reinstall it.
