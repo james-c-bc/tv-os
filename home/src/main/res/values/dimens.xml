@@ -1,9 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- The TV's 1920x1080 screen is 960x540dp. -->
     <dimen name="screen_padding_horizontal">48dp</dimen>
-    <dimen name="screen_padding_vertical">32dp</dimen>
-    <dimen name="tile_gap">12dp</dimen>
-    <dimen name="tile_radius">6dp</dimen>
-    <dimen name="tile_icon">56dp</dimen>
-    <dimen name="tile_text">14sp</dimen>
+    <dimen name="screen_padding_vertical">27dp</dimen>
+    <dimen name="header_gap">20dp</dimen>
+    <dimen name="header_title">22sp</dimen>
+    <dimen name="header_text">11sp</dimen>
+    <dimen name="ok_badge">15dp</dimen>
+    <dimen name="ok_badge_text">6.5sp</dimen>
+    <dimen name="section_gap">16dp</dimen>
+    <dimen name="section_label">10sp</dimen>
+    <dimen name="label_gap">8dp</dimen>
+    <dimen name="tile_gap">16dp</dimen>
+    <dimen name="row_gap">20dp</dimen>
+    <dimen name="tile_radius">7dp</dimen>
+    <dimen name="focus_ring">2dp</dimen>
+    <dimen name="focus_ring_gap">2.5dp</dimen>
+    <dimen name="shortcut_icon">22dp</dimen>
+    <dimen name="shortcut_text">14sp</dimen>
+    <dimen name="tile_icon">40dp</dimen>
+    <dimen name="tile_text">12sp</dimen>
 </resources>

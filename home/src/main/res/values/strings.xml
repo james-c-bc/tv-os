@@ -3,4 +3,13 @@
     <string name="app_name">Home</string>
     <string name="hdmi">HDMI %1$d</string>
     <string name="settings">Settings</string>
+    <string name="inputs">Inputs</string>
+    <string name="apps">Apps</string>
+    <string name="ok">OK</string>
+    <string name="switch_input">Switch to this input</string>
+    <string name="open_settings">Open Android TV settings</string>
+    <string name="open_app">Open %1$s</string>
+    <string name="time_12">h:mm a</string>
+    <string name="time_24">H:mm</string>
+    <string name="date">EEEE d MMMM</string>
 </resources>

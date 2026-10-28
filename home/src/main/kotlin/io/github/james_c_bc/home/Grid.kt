@@ -61,3 +61,10 @@ fun gridRows(
         )
         .chunked(columns)
 }
+
+/**
+ * The app row to scroll to the top of the screen when app row [focusedRow]
+ * has focus, or null to scroll right to the top, inputs and all. From the
+ * third row down, the row above the focused one stays in view.
+ */
+fun topRow(focusedRow: Int): Int? = if (focusedRow >= 2) focusedRow - 1 else null

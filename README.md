@@ -261,6 +261,12 @@ banner show their icon and name. D-pad moves between tiles and Select opens
 one. The grid updates when apps are installed or removed, and Back does
 nothing.
 
+A header above the tiles names the focused tile and says what OK does
+("Switch to this input", "Open Netflix"), with the time and date on the
+right. The focused tile grows and gets a white ring. Moving down past the
+second row of apps scrolls the screen so the row above the focused one stays
+in view.
+
 The top row replaces the stock launcher's input row:
 
 - An **HDMI** tile for each HDMI input, which switches the TV straight to

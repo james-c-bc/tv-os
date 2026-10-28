@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="background">#FF101114</color>
-    <color name="tile">#FF24262C</color>
-    <color name="tile_focused">#FF33363E</color>
+    <color name="background">#FF0D0E11</color>
+    <color name="tile">#FF1A1C21</color>
+    <color name="tile_focused">#FF2A2D34</color>
     <color name="focus_ring">#FFFFFFFF</color>
-    <color name="text">#FFE8E9EC</color>
+    <color name="text">#FFF3F4F6</color>
+    <color name="text_secondary">#FFA3A8B1</color>
 </resources>

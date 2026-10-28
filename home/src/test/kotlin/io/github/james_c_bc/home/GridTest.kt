@@ -176,4 +176,16 @@ class GridTest {
             labels(rows("", app("Netflix"), app("Kodi"))),
         )
     }
+
+    @Test
+    fun staysAtTheTopForTheFirstTwoRows() {
+        assertEquals(null, topRow(0))
+        assertEquals(null, topRow(1))
+    }
+
+    @Test
+    fun keepsTheRowAboveInViewFurtherDown() {
+        assertEquals(1, topRow(2))
+        assertEquals(3, topRow(4))
+    }
 }
