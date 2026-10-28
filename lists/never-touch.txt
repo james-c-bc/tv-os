@@ -1,0 +1,43 @@
+# Packages bin/debloat must never disable. If one of these is on
+# disable.txt, debloat refuses to run and changes nothing.
+# One package per line, with a comment saying what it is.
+
+# HDMI inputs, tuner and the TV input framework
+com.tcl.tv                              # TCL TV app: live TV, tuner and input switching
+com.tcl.tvinput                         # TCL TV input services: HDMI, AV and tuner inputs
+com.tvos                                # TCL TV middleware: talks to the TV hardware (picture, sound, inputs)
+com.android.providers.tv                # Android TV input framework's channel and program store
+
+# HDMI-CEC and core system
+android                                 # Android framework: also runs HDMI-CEC
+com.tcl.system.server                   # TCL system services, including HDMI-CEC control
+com.tcl.xian.StartandroidService        # TCL boot-time service that starts the TV's system services
+com.tcl.providers.config                # TCL device config store that system apps read
+com.android.systemui                    # System UI
+com.android.providers.settings          # Android settings store
+
+# Picture and system settings
+com.tcl.settings                        # TCL settings: picture, sound and TV settings
+com.android.tv.settings                 # Android TV settings
+
+# Remote and Bluetooth pairing
+com.tcl.tcl_bt_rcu_service              # TCL Bluetooth remote service
+com.tcl.autopair                        # TCL remote auto-pairing
+com.android.bluetooth                   # Bluetooth stack
+com.google.android.tv.remote.service    # Android TV Remote service (phone remote, remote pairing)
+
+# Chromecast built-in
+com.google.android.apps.mediashell      # Chromecast built-in
+
+# Google Assistant and voice
+com.google.android.katniss              # Google app for Android TV: voice search
+com.google.android.tv.assistant         # Google Assistant
+com.tcl.micmanager                      # TCL microphone manager: the remote's voice mic
+
+# Play Store and Google services
+com.android.vending                     # Google Play Store
+com.google.android.gms                  # Google Play services
+com.google.android.gsf                  # Google services framework
+
+# Firmware updates stay on
+com.tcl.versionUpdateApp                # TCL firmware updater

@@ -10,6 +10,7 @@ TVS_CONF="${TVS_CONF:-$TV_ROOT/tvs.conf}"
 ADB_PORT=5555
 ADB_CONNECT_TIMEOUT="${ADB_CONNECT_TIMEOUT:-10}"
 TV_BACKUPS="${TV_BACKUPS:-$TV_ROOT/backups}"
+TV_LISTS="${TV_LISTS:-$TV_ROOT/lists}"
 
 die() {
   echo "error: $*" >&2
@@ -118,4 +119,13 @@ tv_packages() {
   )" || return 1
   [[ -n "$packages" ]] || die "the TV at $serial listed no packages"
   echo "$packages"
+}
+
+# read_list <name>: prints the packages in lists/<name>.txt, one per line.
+# Each line is "<package>  # what it is". Blank lines and comments are
+# ignored.
+read_list() {
+  local file="$TV_LISTS/$1.txt"
+  [[ -f "$file" ]] || die "no package list at $file"
+  sed 's/#.*//' "$file" | awk 'NF { print $1 }'
 }

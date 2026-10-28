@@ -1,0 +1,21 @@
+# Packages bin/debloat disables with pm disable-user --user 0.
+# One package per line, with a comment saying what it is. Keep it
+# conservative: only ads, recommendations, telemetry and TCL promo apps.
+# Nothing here may be on never-touch.txt; debloat refuses to run if it is.
+# Undo with bin/restore.
+
+# Telemetry
+com.tcl.bi                              # TCL usage analytics ("BI"): collects and uploads viewing and usage data
+com.tcl.logkit                          # TCL log collector: gathers system logs and uploads them to TCL
+com.google.android.feedback             # Google feedback/crash report sender
+
+# Ads and recommendations
+com.tcl.overseasappshow                 # TCL "App Show": promoted-app recommendations pushed by TCL
+com.tcl.messagebox                      # TCL message box: TCL's push notices and promos
+com.tcl.waterfall.overseas              # TCL "waterfall" content feed: TCL's recommendation rows
+com.google.android.videos               # Google TV / Play Movies: sells films and feeds recommendation rows
+
+# TCL and partner promo apps
+com.tcl.channelplus                     # TCL Channel: TCL's free ad-supported channels
+com.tcl.esticker                        # E-sticker: in-store feature stickers overlaid on the picture
+android.autoinstalls.config.google.gtvpai  # Play Auto Installs: quietly installs apps partners paid to promote

@@ -73,9 +73,10 @@ name, e.g. `bin/check bedroom`.
 | Script        | What it does                                                                 |
 | ------------- | ---------------------------------------------------------------------------- |
 | `bin/connect` | Connects to the TV over Wi-Fi ADB (port 5555).                               |
-| `bin/check`   | Prints the TV's model, Android version, firmware, security patch and Home activity. |
+| `bin/check`   | Prints the TV's model, Android version, firmware, security patch and Home activity, and the state of every package on the disable list. |
 | `bin/backup`  | Snapshots every package's state to `backups/<tv-name>/<timestamp>.txt`.      |
 | `bin/restore` | Re-enables packages that were enabled in a snapshot. Never disables anything. |
+| `bin/debloat` | Backs up, then disables the packages on `lists/disable.txt`. Never uninstalls. |
 
 ## Backup and restore
 
@@ -108,6 +109,48 @@ disabled now (`pm enable`) or uninstalled now (`cmd package install-existing`).
 It never disables anything, so it only undoes disables, and running it twice
 does nothing the second time. Packages installed since the snapshot are left
 alone.
+
+## Debloat
+
+```sh
+bin/debloat
+git add backups && git commit -m "Back up living-room before debloat"
+```
+
+Debloat turns off ads, recommendation rows, telemetry and TCL promo apps. It
+works from two lists, one package per line, each with a comment saying what
+it is:
+
+- `lists/disable.txt`: what debloat disables
+- `lists/never-touch.txt`: what it must never disable: HDMI inputs, HDMI-CEC,
+  Chromecast built-in, Google Assistant and voice, the Play Store, TCL system
+  services and the TCL firmware updater
+
+Debloat refuses to run if a package is on both lists. Otherwise it takes a
+backup with `bin/backup`, then disables each listed package that's enabled
+with `pm disable-user --user 0`. It never uninstalls anything, and it leaves
+listed packages that are already disabled, uninstalled or not on the TV. When
+there's nothing to disable it takes no backup and changes nothing.
+
+A TCL firmware update can re-enable packages. After each one, run `bin/check`
+to see which packages on the disable list are back on, then run
+`bin/debloat` again. Firmware updates stay on: the updater is on the
+never-touch list.
+
+To undo a debloat, run `bin/restore` with the snapshot debloat took.
+
+Keep the disable list conservative. Before you add a package, find out what it
+does, and run the test checklist below afterwards.
+
+### Test checklist
+
+Run this on the TV after each debloat:
+
+- [ ] HDMI input switching works
+- [ ] HDMI-CEC controls the soundbar/console
+- [ ] Chromecast casting to the TV works
+- [ ] Voice search works
+- [ ] A streaming app plays
 
 ## Tests
 

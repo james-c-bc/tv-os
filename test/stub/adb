@@ -59,6 +59,11 @@ case "$1" in
         awk '$1 != "uninstalled" { print "package:" $2 }' "$STUB_PACKAGES" ;;
       "pm list packages -d --user 0")
         awk '$1 == "disabled" { print "package:" $2 }' "$STUB_PACKAGES" ;;
+      "pm disable-user --user 0 "*)
+        pkg="${*: -1}"
+        set_state disabled "$pkg"
+        echo "Package $pkg new state: disabled-user"
+        ;;
       "pm enable --user 0 "*)
         pkg="${*: -1}"
         set_state enabled "$pkg"

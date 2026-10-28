@@ -2,7 +2,7 @@
 # Usage: bin/check [tv-name]
 # Prints what the connected TV is: model, Android version, TCL firmware
 # version, Android build, security patch and the current default Home
-# activity.
+# activity, then the state of every package on lists/disable.txt.
 set -euo pipefail
 source "$(dirname "$0")/../lib/tv.sh"
 
@@ -25,3 +25,15 @@ echo "Firmware:         ${firmware:-unknown}"
 echo "Android build:    $(tv getprop ro.build.display.id)"
 echo "Security patch:   $(tv getprop ro.build.version.security_patch)"
 echo "Home activity:    $home"
+
+# How much of the debloat has stuck, e.g. after a firmware update.
+disable="$(read_list disable)"
+now="$(tv_packages "$serial")"
+states="$(while read -r pkg; do
+  [[ -n "$pkg" ]] || continue
+  state="$(awk -v p="$pkg" '$2 == p { print $1 }' <<< "$now")"
+  printf '  %-12s %s\n' "${state:-not on TV}" "$pkg"
+done <<< "$disable")"
+echo "Disable list:     $(grep -c '^  disabled ' <<< "$states" || true)" \
+  "of $(grep -c . <<< "$states" || true) disabled"
+[[ -z "$states" ]] || echo "$states"

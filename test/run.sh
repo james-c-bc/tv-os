@@ -10,6 +10,7 @@ export PATH="$root/test/stub:$PATH"
 export TVS_CONF="$tmp/tvs.conf"
 export STUB_LOG="$tmp/adb.log"
 export TV_BACKUPS="$tmp/backups"
+export TV_LISTS="$tmp/lists"
 
 pass=0
 fail=0
@@ -32,12 +33,36 @@ contains() { [[ "$out" == *"$1"* ]]; }
 
 reset() {
   : > "$STUB_LOG"
-  rm -rf "$TV_BACKUPS"
-  unset STUB_CONNECT STUB_STATE STUB_SERIAL STUB_HOME STUB_FIRMWARE STUB_PACKAGES
+  rm -rf "$TV_BACKUPS" "$TV_LISTS"
+  unset STUB_CONNECT STUB_STATE STUB_SERIAL STUB_HOME STUB_FIRMWARE
   cat > "$TVS_CONF" <<'EOF'
 # name  ip
 living-room  192.168.1.50
 EOF
+  packages "enabled com.android.tv.settings"
+  lists
+}
+
+# packages <state pkg>...: gives the stub TV these packages
+packages() {
+  export STUB_PACKAGES="$tmp/packages"
+  printf '%s\n' "$@" > "$STUB_PACKAGES"
+}
+
+# lists <disable lines> -- <never-touch lines>: gives debloat and check these
+# lists
+lists() {
+  local file="$TV_LISTS/disable.txt" line
+  mkdir -p "$TV_LISTS"
+  : > "$TV_LISTS/disable.txt"
+  : > "$TV_LISTS/never-touch.txt"
+  for line in "$@"; do
+    if [[ "$line" == -- ]]; then
+      file="$TV_LISTS/never-touch.txt"
+      continue
+    fi
+    echo "$line" >> "$file"
+  done
 }
 
 # --- connect ---
@@ -126,6 +151,22 @@ expect "check says when the TV has no TCL firmware version" \
   contains "Firmware:         unknown"
 
 reset
+export STUB_STATE=device
+packages "disabled com.tcl.ads" "enabled com.tcl.promo" "uninstalled com.tcl.demo" \
+  "enabled com.android.tv.settings"
+lists "com.tcl.ads  # ads" "com.tcl.promo  # promo" "com.tcl.demo  # demo" \
+  "com.tcl.gone  # gone" -- "com.android.tv.settings  # Settings"
+run "$root/bin/check"
+expect "check counts how much of the disable list is disabled" \
+  contains "Disable list:     1 of 4 disabled"
+expect "check shows a disabled package on the list" contains "  disabled     com.tcl.ads"
+expect "check shows an enabled package on the list" contains "  enabled      com.tcl.promo"
+expect "check shows an uninstalled package on the list" contains "  uninstalled  com.tcl.demo"
+expect "check shows a listed package that isn't on the TV" contains "  not on TV    com.tcl.gone"
+expect "check doesn't list packages off the disable list" \
+  bash -c "! grep -q com.android.tv.settings <<< \"\$1\"" _ "$out"
+
+reset
 run "$root/bin/check" kitchen
 expect "check fails for an unknown TV name" contains "no TV named 'kitchen'"
 
@@ -135,12 +176,6 @@ run "$root/bin/check"
 expect "check explains a missing config" contains "Copy tvs.conf.example to tvs.conf"
 
 # --- backup ---
-
-# packages <state pkg>...: gives the stub TV these packages
-packages() {
-  export STUB_PACKAGES="$tmp/packages"
-  printf '%s\n' "$@" > "$STUB_PACKAGES"
-}
 
 # only_snapshot: prints the one snapshot file for living-room
 only_snapshot() { ls "$TV_BACKUPS"/living-room/*.txt; }
@@ -236,6 +271,60 @@ packages "disabled com.tcl.ads"
 run "$root/bin/restore" bedroom
 expect "restore can target a TV by name" \
   grep -q -- "-s 192.168.1.51:5555 shell pm enable --user 0 com.tcl.ads" "$STUB_LOG"
+
+# --- debloat ---
+
+reset
+export STUB_STATE=device
+packages "enabled com.tcl.ads" "enabled com.android.tv.settings"
+lists "# ads" "com.tcl.ads  # TCL ad service" -- "com.android.tv.settings  # Settings"
+run "$root/bin/debloat"
+expect "debloat succeeds" test "$code" -eq 0
+expect "debloat disables an enabled package on the disable list" \
+  grep -qx "disabled com.tcl.ads" "$STUB_PACKAGES"
+expect "debloat disables with pm disable-user for user 0" \
+  grep -q -- "-s 192.168.1.50:5555 shell pm disable-user --user 0 com.tcl.ads" "$STUB_LOG"
+expect "debloat leaves packages that aren't on the list" \
+  grep -qx "enabled com.android.tv.settings" "$STUB_PACKAGES"
+snap="$(only_snapshot)"
+expect "debloat backs up the TV first" grep -qx "enabled com.tcl.ads" "$snap"
+expect "debloat says where the backup went" contains "backups/living-room/"
+expect "debloat says what it disabled" contains "disabled com.tcl.ads"
+
+before="$(cat "$STUB_PACKAGES")"
+: > "$STUB_LOG"
+run "$root/bin/debloat"
+expect "debloat succeeds when run twice" test "$code" -eq 0
+expect "debloat changes nothing the second time" test "$before" == "$(cat "$STUB_PACKAGES")"
+expect "debloat runs no disable commands the second time" \
+  bash -c "! grep -q disable-user '$STUB_LOG'"
+expect "debloat takes no new backup when there's nothing to do" \
+  test "$(ls "$TV_BACKUPS"/living-room | wc -l)" -eq 1
+expect "debloat says there's nothing to do" contains "Nothing to disable"
+
+reset
+export STUB_STATE=device
+packages "disabled com.tcl.promo" "uninstalled com.tcl.demo" "enabled com.android.tv.settings"
+lists "com.tcl.promo  # promo" "com.tcl.demo  # demo" "com.tcl.gone  # gone" -- \
+  "com.android.tv.settings  # Settings"
+run "$root/bin/debloat"
+expect "debloat succeeds when listed packages are already off or missing" test "$code" -eq 0
+expect "debloat leaves an uninstalled package alone" \
+  bash -c "! grep -q 'disable-user --user 0 com.tcl.demo' '$STUB_LOG'"
+expect "debloat skips a package that isn't on the TV" \
+  contains "skip     com.tcl.gone (not on the TV)"
+
+reset
+export STUB_STATE=device
+packages "enabled com.tcl.ads" "enabled com.tcl.tvinput"
+lists "com.tcl.ads  # ads" "com.tcl.tvinput  # oops" -- "com.tcl.tvinput  # HDMI inputs"
+run "$root/bin/debloat"
+expect "debloat refuses a package on the never-touch list" test "$code" -ne 0
+expect "debloat names the never-touch package it refused" \
+  contains "com.tcl.tvinput is on the never-touch list"
+expect "debloat changes nothing when it refuses" \
+  bash -c "! grep -q disable-user '$STUB_LOG'"
+expect "debloat takes no backup when it refuses" test ! -e "$TV_BACKUPS"
 
 echo
 echo "$pass passed, $fail failed"

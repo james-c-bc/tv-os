@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# Usage: bin/debloat [tv-name]
+# Disables every package on lists/disable.txt that's enabled on the TV, with
+# pm disable-user --user 0. It never uninstalls anything, and it refuses to
+# run if a package on the disable list is also on lists/never-touch.txt.
+#
+# It backs up the TV with bin/backup before it changes anything. Running it
+# again changes nothing, so re-run it after a firmware update re-enables
+# packages. Undo it with bin/restore.
+set -euo pipefail
+source "$(dirname "$0")/../lib/tv.sh"
+
+require_adb
+entry="$(tv_lookup "${1:-}")"
+name="${entry%% *}"
+serial="${entry#* }:$ADB_PORT"
+require_connected "$serial"
+
+disable="$(read_list disable)"
+never="$(read_list never-touch)"
+
+# Refuse the whole run if the lists overlap, before touching the TV.
+clash="$(grep -Fxf <(echo "$never") <<< "$disable" || true)"
+if [[ -n "$clash" ]]; then
+  while read -r pkg; do
+    echo "error: $pkg is on the never-touch list. Take it off lists/disable.txt." >&2
+  done <<< "$clash"
+  exit 1
+fi
+
+now="$(tv_packages "$serial")"
+todo=()
+while read -r pkg; do
+  [[ -n "$pkg" ]] || continue
+  current="$(awk -v p="$pkg" '$2 == p { print $1 }' <<< "$now")"
+  case "$current" in
+    enabled) todo+=("$pkg") ;;
+    disabled) ;;
+    uninstalled) echo "skip     $pkg (uninstalled; debloat leaves it)" ;;
+    "") echo "skip     $pkg (not on the TV)" ;;
+  esac
+done <<< "$disable"
+
+if [[ "${#todo[@]}" -eq 0 ]]; then
+  echo "Nothing to disable: every package on the disable list is already off."
+  exit 0
+fi
+
+"$TV_ROOT/bin/backup" "$name"
+
+for pkg in "${todo[@]}"; do
+  result="$(adb -s "$serial" shell pm disable-user --user 0 "$pkg" 2>&1 | tr -d '\r')"
+  [[ "$result" == *"new state: disabled-user"* ]] \
+    || die "'pm disable-user --user 0 $pkg' failed: $result"
+  echo "disabled $pkg"
+done
+echo "Disabled ${#todo[@]} package(s). Undo with bin/restore."
