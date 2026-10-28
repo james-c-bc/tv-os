@@ -13,6 +13,7 @@
 #   STUB_MARKER   file standing in for the TV's /data/local/tmp boot marker
 #   STUB_PACKAGES file of "<state> <package>" lines (enabled, disabled or
 #                 uninstalled) the pm commands read and update
+#   STUB_INSTALL_FAIL  install fails for APKs whose file name contains this
 # Every invocation is appended to $STUB_LOG.
 
 echo "$*" >> "${STUB_LOG:-/dev/null}"
@@ -56,6 +57,16 @@ case "$1" in
       printf '%s\t%s\n' "${STUB_SERIAL:-192.168.1.50:5555}" "$STUB_STATE"
     fi
     echo
+    ;;
+  install)
+    apk="${*: -1}"
+    if [[ -n "${STUB_INSTALL_FAIL:-}" && "$(basename "$apk")" == *"$STUB_INSTALL_FAIL"* ]]; then
+      echo "Performing Streamed Install"
+      echo "adb: failed to install $apk: Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: signatures do not match]"
+      exit 1
+    fi
+    echo "Performing Streamed Install"
+    echo "Success"
     ;;
   shell)
     shift

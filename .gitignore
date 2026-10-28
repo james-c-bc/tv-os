@@ -1,2 +1,4 @@
 # Local TV list (IPs). Copy tvs.conf.example to start.
 tvs.conf
+# APKs to sideload with bin/sideload. Never committed.
+apks/

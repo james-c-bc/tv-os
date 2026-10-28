@@ -11,6 +11,7 @@ ADB_PORT=5555
 ADB_CONNECT_TIMEOUT="${ADB_CONNECT_TIMEOUT:-10}"
 TV_BACKUPS="${TV_BACKUPS:-$TV_ROOT/backups}"
 TV_LISTS="${TV_LISTS:-$TV_ROOT/lists}"
+TV_APKS="${TV_APKS:-$TV_ROOT/apks}"
 
 die() {
   echo "error: $*" >&2

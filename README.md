@@ -78,6 +78,7 @@ name, e.g. `bin/check bedroom`.
 | `bin/restore` | Re-enables packages that were enabled in a snapshot. Never disables anything. |
 | `bin/debloat` | Backs up, then disables the packages on `lists/disable.txt`. Never uninstalls. |
 | `bin/launcher` | Makes Projectivy Launcher the Home screen, then (`disable-stock`, after a reboot) disables the stock launcher. |
+| `bin/sideload` | Installs or updates every APK in `apks/`.                                    |
 
 ## Backup and restore
 
@@ -193,6 +194,30 @@ accessibility service. Leave the stock launcher enabled, and don't run
 To go back to the stock launcher, run `bin/restore` with the snapshot
 `disable-stock` took. It re-enables the stock launcher and recommendations
 and makes the stock launcher the default Home again.
+
+## Sideload apps
+
+For apps that aren't on the Play Store, put their `.apk` files in `apks/` at
+the repo root and run:
+
+```sh
+mkdir -p apks
+cp ~/Downloads/SmartTube.apk apks/
+bin/sideload
+```
+
+It installs each APK with `adb install -r` and prints `ok` or `FAILED` with
+the reason for each one. `-r` updates apps that are already installed, so to
+update an app, replace its APK in `apks/` and run `bin/sideload` again.
+Sideloaded apps show up in the TV's app list (**Settings → Apps**, and on
+the Home screen).
+
+`apks/` is git-ignored, so APKs are never committed. Keep the downloaded
+files somewhere else too if you want them after a fresh clone.
+
+An update fails with `INSTALL_FAILED_UPDATE_INCOMPATIBLE` when the new APK is
+signed with a different key than the installed app, e.g. it came from a
+different source. Uninstall the app on the TV, then run `bin/sideload` again.
 
 ## Tests
 

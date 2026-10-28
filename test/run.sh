@@ -13,6 +13,7 @@ export TV_BACKUPS="$tmp/backups"
 export TV_LISTS="$tmp/lists"
 export STUB_HOME="$tmp/home"
 export STUB_MARKER="$tmp/marker"
+export TV_APKS="$tmp/apks"
 export LAUNCHER_SETTLE=0
 
 pass=0
@@ -36,8 +37,9 @@ contains() { [[ "$out" == *"$1"* ]]; }
 
 reset() {
   : > "$STUB_LOG"
-  rm -rf "$TV_BACKUPS" "$TV_LISTS" "$STUB_HOME" "$STUB_MARKER"
+  rm -rf "$TV_BACKUPS" "$TV_LISTS" "$STUB_HOME" "$STUB_MARKER" "$TV_APKS"
   unset STUB_CONNECT STUB_STATE STUB_SERIAL STUB_FIRMWARE STUB_FOREGROUND STUB_BOOT_ID
+  unset STUB_INSTALL_FAIL
   cat > "$TVS_CONF" <<'EOF'
 # name  ip
 living-room  192.168.1.50
@@ -486,6 +488,50 @@ expect "restore brings launcherx back" \
   grep -qx "enabled com.google.android.apps.tv.launcherx" "$STUB_PACKAGES"
 expect "restore makes launcherx the default Home again" \
   grep -qx "com.google.android.apps.tv.launcherx/.home.HomeActivity" "$STUB_HOME"
+
+# --- sideload ---
+
+reset
+run "$root/bin/sideload"
+expect "sideload fails when no TV is connected" test "$code" -ne 0
+expect "sideload says no TV is connected" contains "No TV connected at 192.168.1.50:5555"
+
+reset
+export STUB_STATE=device
+run "$root/bin/sideload"
+expect "sideload with no apks folder succeeds" test "$code" -eq 0
+expect "sideload with no apks folder says there's nothing to install" \
+  contains "No APKs to install"
+
+mkdir -p "$TV_APKS"
+run "$root/bin/sideload"
+expect "sideload with an empty apks folder succeeds" test "$code" -eq 0
+expect "sideload with an empty apks folder says there's nothing to install" \
+  contains "No APKs to install"
+expect "sideload with an empty apks folder installs nothing" \
+  bash -c "! grep -q install '$STUB_LOG'"
+
+touch "$TV_APKS/Smart Tube.apk" "$TV_APKS/kodi.APK" "$TV_APKS/notes.txt"
+run "$root/bin/sideload"
+expect "sideload succeeds when every APK installs" test "$code" -eq 0
+expect "sideload installs each APK with install -r" \
+  grep -qx -- "-s 192.168.1.50:5555 install -r $TV_APKS/Smart Tube.apk" "$STUB_LOG"
+expect "sideload installs .APK files too" \
+  grep -qx -- "-s 192.168.1.50:5555 install -r $TV_APKS/kodi.APK" "$STUB_LOG"
+expect "sideload ignores files that aren't APKs" bash -c "! grep -q notes.txt '$STUB_LOG'"
+expect "sideload reports each APK" contains "ok     Smart Tube.apk"
+expect "sideload says how many it installed" contains "Installed 2 APK(s)"
+
+run "$root/bin/sideload"
+expect "sideload again updates without errors" test "$code" -eq 0
+
+export STUB_INSTALL_FAIL=kodi
+run "$root/bin/sideload"
+expect "sideload fails when an APK fails to install" test "$code" -ne 0
+expect "sideload says which APK failed and why" \
+  contains "FAILED kodi.APK: adb: failed to install"
+expect "sideload still installs the other APKs" contains "ok     Smart Tube.apk"
+expect "sideload counts the failures" contains "1 of 2 APK(s) failed to install"
 
 echo
 echo "$pass passed, $fail failed"

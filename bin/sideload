@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Usage: bin/sideload [tv-name]
+# Installs every .apk in apks/ on the TV with adb install -r, so APKs that
+# are already installed get updated, and says whether each one worked.
+# apks/ is git-ignored: APKs are never committed.
+set -euo pipefail
+source "$(dirname "$0")/../lib/tv.sh"
+
+require_adb
+serial="$(tv_serial "${1:-}")"
+require_connected "$serial"
+
+shopt -s nullglob nocaseglob
+apks=("$TV_APKS"/*.apk)
+shopt -u nullglob nocaseglob
+
+if [[ "${#apks[@]}" -eq 0 ]]; then
+  echo "No APKs to install: put .apk files in ${TV_APKS#"$TV_ROOT"/}/ and run bin/sideload again."
+  exit 0
+fi
+
+failed=0
+for apk in "${apks[@]}"; do
+  file="$(basename "$apk")"
+  # adb install prints "Success" when it works, and the reason when it
+  # doesn't, e.g. "Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: ...]".
+  result="$(adb -s "$serial" install -r "$apk" 2>&1 | tr -d '\r')" || true
+  if [[ "$result" == *Success* ]]; then
+    echo "ok     $file"
+  else
+    echo "FAILED $file: $(grep -v '^Performing' <<< "$result" | tail -n 1)"
+    failed=$((failed + 1))
+  fi
+done
+
+if [[ "$failed" -gt 0 ]]; then
+  die "$failed of ${#apks[@]} APK(s) failed to install"
+fi
+echo "Installed ${#apks[@]} APK(s)"
