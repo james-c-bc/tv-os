@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- An HDMI plug -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path android:fillColor="@color/text" android:pathData="M3,7 L21,7 L21,12 L18,15 L6,15 L3,12 Z M5,9 L5,11.2 L6.8,13 L17.2,13 L19,11.2 L19,9 Z" />
+    <path android:fillColor="@color/text" android:pathData="M7,10 L17,10 L17,11 L7,11 Z" />
+    <path android:fillColor="@color/text" android:pathData="M9,15 L15,15 L15,19 L9,19 Z" />
+</vector>

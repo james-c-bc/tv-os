@@ -6,8 +6,13 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.pm.ResolveInfo
+import android.graphics.drawable.Drawable
+import android.media.tv.TvContract
+import android.media.tv.TvInputInfo
+import android.media.tv.TvInputManager
 import android.os.Bundle
+import android.os.Handler
+import android.provider.Settings
 import android.text.TextUtils
 import android.util.TypedValue
 import android.view.Gravity
@@ -23,15 +28,25 @@ import android.widget.Space
 import android.widget.TextView
 
 /**
- * Every installed TV app as a tile, five per row, alphabetical. Apps show
- * their 16:9 banner, or their icon and name if they have no banner.
+ * A row of HDMI input and Settings tiles, then every installed TV app as a
+ * tile, five per row, alphabetical. Apps show their 16:9 banner, or their
+ * icon and name if they have no banner.
  */
 class HomeActivity : Activity() {
     private lateinit var grid: LinearLayout
+    private var tvInputManager: TvInputManager? = null
 
     // Rebuilds the grid when an app is installed, updated or removed.
     private val packageReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) = showApps()
+        override fun onReceive(context: Context, intent: Intent) = showTiles()
+    }
+
+    // Rebuilds the grid when a TV input comes or goes. At boot, the HDMI
+    // inputs can turn up after Home has started.
+    private val inputCallback = object : TvInputManager.TvInputCallback() {
+        override fun onInputAdded(inputId: String) = showTiles()
+        override fun onInputRemoved(inputId: String) = showTiles()
+        override fun onInputUpdated(inputId: String) = showTiles()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,10 +72,13 @@ class HomeActivity : Activity() {
             addAction(Intent.ACTION_PACKAGE_CHANGED)
             addDataScheme("package")
         })
-        showApps()
+        tvInputManager = getSystemService(TvInputManager::class.java)
+        tvInputManager?.registerCallback(inputCallback, Handler(mainLooper))
+        showTiles()
     }
 
     override fun onDestroy() {
+        tvInputManager?.unregisterCallback(inputCallback)
         unregisterReceiver(packageReceiver)
         super.onDestroy()
     }
@@ -69,7 +87,7 @@ class HomeActivity : Activity() {
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {}
 
-    private fun showApps() {
+    private fun showTiles() {
         val focused = grid.findFocus()?.tag
         val infos = packageManager.queryIntentActivities(
             Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER), 0,
@@ -77,41 +95,68 @@ class HomeActivity : Activity() {
         val byApp = infos.associateBy {
             App(it.loadLabel(packageManager).toString().trim(), it.activityInfo.packageName, it.activityInfo.name)
         }
-        val gap = resources.getDimensionPixelSize(R.dimen.tile_gap)
+        val shortcuts = hdmiInputs(tvInputs()).map { input ->
+            shortcut(input, getString(R.string.hdmi, input.port), R.drawable.input) { switchTo(input) }
+        } + shortcut(SettingsTile, getString(R.string.settings), R.drawable.settings) { openSettings() }
 
         grid.removeAllViews()
-        for ((index, row) in gridRows(byApp.keys.toList(), packageName).withIndex()) {
-            val rowView = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                clipChildren = false
-                clipToPadding = false
-            }
-            // A short last row is padded with spacers so its tiles are the
-            // same size as everyone else's.
-            for (column in 0 until COLUMNS) {
-                val app = row.getOrNull(column)
-                val view = if (app != null) tile(app, byApp.getValue(app)) else Space(this)
-                rowView.addView(view, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f).apply {
-                    if (column > 0) marginStart = gap
-                })
-            }
-            grid.addView(rowView, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
-                if (index > 0) topMargin = gap
+        shortcuts.chunked(COLUMNS).forEach { addRow(it) }
+        for (row in gridRows(byApp.keys.toList(), packageName)) {
+            addRow(row.map { app ->
+                val info = byApp.getValue(app)
+                val banner = info.activityInfo.loadBanner(packageManager)
+                tile(app, banner, app.label, if (banner == null) info.loadIcon(packageManager) else null) { launch(app) }
             })
         }
 
-        // Keep focus on the same app across a rebuild, or start at the top.
+        // Keep focus on the same tile across a rebuild, or start at the top.
         val target = focused?.let { grid.findViewWithTag<View>(it) } ?: firstTile()
         target?.requestFocus()
+    }
+
+    private fun tvInputs(): List<Input> =
+        tvInputManager?.tvInputList.orEmpty().map {
+            // A CEC device behind an HDMI port is an input too, with the
+            // port's input as its parent.
+            val hdmi = it.type == TvInputInfo.TYPE_HDMI && it.isPassthroughInput && it.parentId == null
+            Input(it.id, it.loadLabel(this).toString(), hdmi)
+        }
+
+    // Adds a row of tiles to the grid. A short row is padded with spacers so
+    // its tiles are the same size as everyone else's.
+    private fun addRow(tiles: List<View>) {
+        val gap = resources.getDimensionPixelSize(R.dimen.tile_gap)
+        val rowView = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            clipChildren = false
+            clipToPadding = false
+        }
+        for (column in 0 until COLUMNS) {
+            rowView.addView(tiles.getOrNull(column) ?: Space(this), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f).apply {
+                if (column > 0) marginStart = gap
+            })
+        }
+        // Right from the end of a row stays put, rather than jumping
+        // diagonally into the next row.
+        tiles.lastOrNull()?.apply {
+            id = View.generateViewId()
+            nextFocusRightId = id
+        }
+        grid.addView(rowView, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+            if (grid.childCount > 0) topMargin = gap
+        })
     }
 
     private fun firstTile(): View? =
         (grid.getChildAt(0) as? LinearLayout)?.getChildAt(0)
 
-    private fun tile(app: App, info: ResolveInfo): View {
-        val banner = info.activityInfo.loadBanner(packageManager)
-        return TileView(this).apply {
-            tag = app
+    private fun shortcut(tag: Any, label: String, icon: Int, onSelect: () -> Unit) =
+        tile(tag, null, label, getDrawable(icon), onSelect)
+
+    // A tile shows [banner] if there is one, or else [icon] above [label].
+    private fun tile(tag: Any, banner: Drawable?, label: String, icon: Drawable?, onSelect: () -> Unit): View =
+        TileView(this).apply {
+            this.tag = tag
             isFocusable = true
             isClickable = true
             setBackgroundResource(R.drawable.tile_background)
@@ -120,7 +165,7 @@ class HomeActivity : Activity() {
             setPadding(ring, ring, ring, ring)
             outlineProvider = ViewOutlineProvider.BACKGROUND
             clipToOutline = true
-            contentDescription = app.label
+            contentDescription = label
 
             if (banner != null) {
                 addView(ImageView(context).apply {
@@ -128,10 +173,10 @@ class HomeActivity : Activity() {
                     scaleType = ImageView.ScaleType.CENTER_CROP
                 }, MATCH_PARENT, MATCH_PARENT)
             } else {
-                addView(iconAndName(app, info), FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT, Gravity.CENTER))
+                addView(iconAndName(label, icon), FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT, Gravity.CENTER))
             }
 
-            setOnClickListener { launch(app) }
+            setOnClickListener { onSelect() }
             setOnFocusChangeListener { view, hasFocus ->
                 val scale = if (hasFocus) 1.06f else 1f
                 view.animate().scaleX(scale).scaleY(scale)
@@ -139,17 +184,16 @@ class HomeActivity : Activity() {
                     .setDuration(120).start()
             }
         }
-    }
 
-    private fun iconAndName(app: App, info: ResolveInfo) = LinearLayout(this).apply {
+    private fun iconAndName(label: String, icon: Drawable?) = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER_HORIZONTAL
         val size = resources.getDimensionPixelSize(R.dimen.tile_icon)
         addView(ImageView(context).apply {
-            setImageDrawable(info.loadIcon(packageManager))
+            setImageDrawable(icon)
         }, LinearLayout.LayoutParams(size, size))
         addView(TextView(context).apply {
-            text = app.label
+            text = label
             setTextColor(getColor(R.color.text))
             setTextSize(TypedValue.COMPLEX_UNIT_PX, resources.getDimension(R.dimen.tile_text))
             maxLines = 1
@@ -157,6 +201,30 @@ class HomeActivity : Activity() {
             gravity = Gravity.CENTER
             setPadding(dp(8), dp(6), dp(8), 0)
         }, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+    }
+
+    // The TV app (com.tcl.tv) handles a pass-through input's channel URI
+    // and switches straight to it.
+    private fun switchTo(input: HdmiInput) {
+        val intent = Intent(Intent.ACTION_VIEW, TvContract.buildChannelUriForPassthroughInput(input.inputId))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try {
+            startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            // No TV app to show it. Nothing to do.
+        }
+    }
+
+    // Android TV Settings, not TCL's picture and sound menu.
+    private fun openSettings() {
+        val intent = Intent(Settings.ACTION_SETTINGS)
+            .setPackage(TV_SETTINGS)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try {
+            startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            // TV Settings is disabled. Nothing to do.
+        }
     }
 
     private fun launch(app: App) {
@@ -168,12 +236,17 @@ class HomeActivity : Activity() {
             startActivity(intent)
         } catch (e: ActivityNotFoundException) {
             // Removed since the grid was drawn.
-            showApps()
+            showTiles()
         }
     }
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 }
+
+private const val TV_SETTINGS = "com.android.tv.settings"
+
+/** The Settings tile's tag, so focus stays on it across a rebuild. */
+private data object SettingsTile
 
 /** A tile that keeps a 16:9 shape at whatever width its row gives it. */
 private class TileView(context: Context) : FrameLayout(context) {

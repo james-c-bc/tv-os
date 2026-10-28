@@ -165,6 +165,8 @@ Once our Home app is the Home screen (see below), also check:
 
 - [ ] Home button lands on our Home app
 - [ ] After a reboot, Home still lands on our Home app
+- [ ] HDMI tiles switch to the right input
+- [ ] The Settings tile opens Android TV Settings
 
 ## Home screen
 
@@ -236,10 +238,23 @@ different source. Uninstall the app on the TV, then run `bin/sideload` again.
 ## Home app
 
 `home/` holds our own minimal Home app, "Home" (`io.github.james_c_bc.home`):
-every installed TV app as its banner, five per row, alphabetical, on a dark
-background. Apps without a banner show their icon and name. D-pad moves
-between apps and Select opens one. The grid updates when apps are installed
-or removed, and Back does nothing.
+a row of input and Settings tiles, then every installed TV app as its
+banner, five per row, alphabetical, on a dark background. Apps without a
+banner show their icon and name. D-pad moves between tiles and Select opens
+one. The grid updates when apps are installed or removed, and Back does
+nothing.
+
+The top row replaces the stock launcher's input row:
+
+- An **HDMI** tile for each HDMI input, which switches the TV straight to
+  it. Home finds the inputs on the TV (`com.tcl.tvinput`'s pass-through
+  inputs, by their "HDMI 1", "HDMI 2"… labels) rather than hard-coding
+  them, and the tiles show even with nothing plugged in. This model's
+  chassis has a fourth HDMI port, but the firmware gives it no input (TCL's
+  own TV app and source menu don't offer it either), so this TV shows
+  HDMI 1–3.
+- A **Settings** tile, which opens Android TV Settings. The remote's
+  settings button still opens TCL's picture and sound menu.
 
 It's Kotlin with plain Android views, targeting Android 11, and it's built
 with the Gradle wrapper in `home/`. It registers as both a Home activity and
@@ -295,7 +310,7 @@ cd home && ./gradlew test
 ```
 
 They run on the Mac's JVM and cover the logic that isn't UI (the order of
-the grid). Unlike `bin/home`, Gradle doesn't go looking for Java and the
+the grid, and picking the HDMI inputs by port). Unlike `bin/home`, Gradle doesn't go looking for Java and the
 SDK, so point it at them first if `java -version` isn't 17 or `ANDROID_HOME`
 is unset:
 
