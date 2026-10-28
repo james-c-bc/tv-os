@@ -239,7 +239,8 @@ different source. Uninstall the app on the TV, then run `bin/sideload` again.
 
 `home/` holds our own minimal Home app, "Home" (`io.github.james_c_bc.home`):
 a row of input and Settings tiles, then every installed TV app as its
-banner, five per row, alphabetical, on a dark background. Apps without a
+banner, five per row, in the order [`home/config/apps.txt`](#app-order)
+gives, on a dark background. Apps without a
 banner show their icon and name. D-pad moves between tiles and Select opens
 one. The grid updates when apps are installed or removed, and Back does
 nothing.
@@ -264,6 +265,32 @@ a normal TV app, so it also opens from the stock launcher's app list.
 The firmware won't let Projectivy be the default Home: launcherx and
 setupwraith register Home at higher priority than any installed app can.
 That's why this app exists.
+
+### App order
+
+`home/config/apps.txt` sets the order of apps on Home and hides ones you
+never use. It holds one package per line, with an optional `# comment`:
+
+```
+com.netflix.ninja                 # Netflix
+com.google.android.youtube.tv     # YouTube
+-com.tcl.guard                    # TCL Guard: hidden
+```
+
+- Listed packages come first, in file order.
+- Every other installed app follows, alphabetically.
+- A line starting with `-` hides that package.
+- Listed packages that aren't installed are skipped, and blank lines are
+  ignored.
+
+The file is built into the app, so after editing it, run `bin/home` to
+rebuild and reinstall Home. To find an app's package, run
+`adb -s <tv-ip>:5555 shell pm list packages`, or look it up in the app's
+Play Store URL (`?id=...`).
+
+Hiding an app only takes it off Home: it's still installed, and still opens
+from **Settings → Apps**. To turn it off altogether, put it on the
+[disable list](#debloat).
 
 ### Setup
 
@@ -310,7 +337,7 @@ cd home && ./gradlew test
 ```
 
 They run on the Mac's JVM and cover the logic that isn't UI (the order of
-the grid, and picking the HDMI inputs by port). Unlike `bin/home`, Gradle doesn't go looking for Java and the
+the grid and reading `apps.txt`, and picking the HDMI inputs by port). Unlike `bin/home`, Gradle doesn't go looking for Java and the
 SDK, so point it at them first if `java -version` isn't 17 or `ANDROID_HOME`
 is unset:
 

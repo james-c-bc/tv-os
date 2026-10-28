@@ -29,11 +29,12 @@ import android.widget.TextView
 
 /**
  * A row of HDMI input and Settings tiles, then every installed TV app as a
- * tile, five per row, alphabetical. Apps show their 16:9 banner, or their
+ * tile, five per row, in the order apps.txt gives. Apps show their 16:9 banner, or their
  * icon and name if they have no banner.
  */
 class HomeActivity : Activity() {
     private lateinit var grid: LinearLayout
+    private lateinit var appOrder: AppOrder
     private var tvInputManager: TvInputManager? = null
 
     // Rebuilds the grid when an app is installed, updated or removed.
@@ -51,6 +52,8 @@ class HomeActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // apps.txt is built into the app, so it only changes with bin/home.
+        appOrder = AppOrder.parse(assets.open(APP_ORDER).bufferedReader().use { it.readText() })
         val padH = resources.getDimensionPixelSize(R.dimen.screen_padding_horizontal)
         val padV = resources.getDimensionPixelSize(R.dimen.screen_padding_vertical)
         // The focused tile grows, so nothing may clip it.
@@ -101,7 +104,7 @@ class HomeActivity : Activity() {
 
         grid.removeAllViews()
         shortcuts.chunked(COLUMNS).forEach { addRow(it) }
-        for (row in gridRows(byApp.keys.toList(), packageName)) {
+        for (row in gridRows(byApp.keys.toList(), packageName, appOrder)) {
             addRow(row.map { app ->
                 val info = byApp.getValue(app)
                 val banner = info.activityInfo.loadBanner(packageManager)
@@ -244,6 +247,9 @@ class HomeActivity : Activity() {
 }
 
 private const val TV_SETTINGS = "com.android.tv.settings"
+
+/** The owner's app order, from home/config/apps.txt. */
+private const val APP_ORDER = "apps.txt"
 
 /** The Settings tile's tag, so focus stays on it across a rebuild. */
 private data object SettingsTile

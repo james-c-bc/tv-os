@@ -36,6 +36,13 @@ android {
         }
     }
 
+    // config/apps.txt, the owner's app order, is built in as an asset.
+    sourceSets {
+        getByName("main") {
+            assets.srcDir("config")
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

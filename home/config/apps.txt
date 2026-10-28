@@ -1,0 +1,33 @@
+# The order of apps on Home. One package per line, with an optional comment.
+# Listed apps come first, in this order, then every other app alphabetically.
+# A line starting with - hides that app. Apps listed here but not installed
+# are skipped. Run bin/home after changing this file.
+#
+# To find an app's package: adb shell pm list packages
+
+# Streaming
+com.netflix.ninja                     # Netflix
+com.google.android.youtube.tv         # YouTube
+com.disney.disneyplus                 # Disney+
+au.com.stan.and                       # Stan
+com.amazon.amazonvideo.livingroom     # Prime Video
+au.com.streamotion.ares.tv            # Binge
+au.com.kayosports.tv                  # Kayo Sports
+com.wbd.stream                        # HBO Max
+com.apple.atve.androidtv.appletv      # Apple TV
+org.jellyfin.androidtv                # Jellyfin
+
+# Free-to-air
+au.net.abc.iview                      # ABC iview
+com.swm.live                          # 7plus
+au.com.ninenow.ctv                    # 9Now
+au.com.tenplay                        # 10
+
+# Music
+com.google.android.youtube.tvmusic    # YouTube Music
+
+# Hidden: TCL extras
+-com.tcl.guard                        # TCL Guard
+-com.tcl.ocean.instructions           # TCL user manual
+-com.tcl.smartalexa                   # Alexa
+-com.tcl.partnercustomizer            # TCL partner customizer
