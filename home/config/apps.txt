@@ -31,3 +31,8 @@ com.google.android.youtube.tvmusic    # YouTube Music
 -com.tcl.ocean.instructions           # TCL user manual
 -com.tcl.smartalexa                   # Alexa
 -com.tcl.partnercustomizer            # TCL partner customizer
+-com.tcl.suspension                   # Quick Panel
+-com.tcl.notereminder                 # Reminder
+-com.tcl.t_solo                       # T-Solo
+-com.tcl.dashboard                    # TCL Home
+-com.tcl.MultiScreenInteraction_TV    # MagiConnect
