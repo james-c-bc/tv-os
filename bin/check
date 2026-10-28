@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Usage: bin/check [tv-name]
+# Prints what the connected TV is: model, Android version, firmware build
+# and the current default Home activity.
+set -euo pipefail
+source "$(dirname "$0")/../lib/tv.sh"
+
+require_adb
+serial="$(tv_serial "${1:-}")"
+require_connected "$serial"
+
+tv() { adb -s "$serial" shell "$@" | tr -d '\r'; }
+
+home="$(tv cmd package resolve-activity --brief \
+  -a android.intent.action.MAIN -c android.intent.category.HOME | tail -n 1)"
+
+echo "TV:               $serial"
+echo "Model:            $(tv getprop ro.product.model)"
+echo "Android version:  $(tv getprop ro.build.version.release)"
+echo "Build:            $(tv getprop ro.build.display.id)"
+echo "Home activity:    $home"

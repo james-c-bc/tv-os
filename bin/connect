@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Usage: bin/connect [tv-name]
+# Connects to a TV from tvs.conf over Wi-Fi ADB. With no name, uses the
+# first TV listed.
+set -euo pipefail
+source "$(dirname "$0")/../lib/tv.sh"
+
+require_adb
+entry="$(tv_lookup "${1:-}")"
+name="${entry%% *}"
+serial="${entry#* }:$ADB_PORT"
+
+# adb connect exits 0 even when it fails, so read what it says.
+result="$(adb connect "$serial" 2>&1 || true)"
+if [[ "$result" != *"connected to"* || "$result" == *"failed"* ]]; then
+  echo "$result" >&2
+  die "couldn't reach $name at $serial. Check the TV is on, on the same network, and has Network debugging turned on (see README)."
+fi
+
+require_connected "$serial"
+echo "Connected to $name ($serial)"

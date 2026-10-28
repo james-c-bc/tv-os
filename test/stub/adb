@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# Fake adb for tests. Behaviour is driven by env vars:
+#   STUB_CONNECT  "ok" -> connect succeeds; anything else -> connect fails
+#   STUB_STATE    device state `devices` lists (unset -> no devices)
+#   STUB_SERIAL   serial `devices` lists (default 192.168.1.50:5555)
+#   STUB_HOME     what `resolve-activity --brief` prints on its last line
+# Every invocation is appended to $STUB_LOG.
+
+echo "$*" >> "${STUB_LOG:-/dev/null}"
+
+serial=""
+if [[ "$1" == "-s" ]]; then
+  serial="$2"
+  shift 2
+fi
+
+case "$1" in
+  connect)
+    if [[ "${STUB_CONNECT:-}" == "ok" ]]; then
+      echo "connected to $2"
+    else
+      echo "failed to connect to '$2': Connection refused"
+    fi
+    ;;
+  devices)
+    echo "List of devices attached"
+    if [[ -n "${STUB_STATE:-}" ]]; then
+      printf '%s\t%s\n' "${STUB_SERIAL:-192.168.1.50:5555}" "$STUB_STATE"
+    fi
+    echo
+    ;;
+  shell)
+    shift
+    case "$*" in
+      "getprop ro.product.model") echo "Smart TV" ;;
+      "getprop ro.build.version.release") echo "11" ;;
+      "getprop ro.build.display.id") echo "V8-R51MT05-LF1V620.021315" ;;
+      cmd\ package\ resolve-activity*)
+        echo "priority=0 preferredOrder=0 match=0x108000 specificIndex=-1 isDefault=true"
+        echo "${STUB_HOME:-com.google.android.tvlauncher/.MainActivity}"
+        ;;
+      *) echo "stub adb: unexpected shell command: $*" >&2; exit 1 ;;
+    esac
+    ;;
+  *)
+    echo "stub adb: unexpected command: $*" >&2
+    exit 1
+    ;;
+esac
