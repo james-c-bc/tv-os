@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+# Usage: bin/launcher [tv-name]
+#        bin/launcher disable-stock [tv-name]
+# Makes Projectivy Launcher the TV's Home screen. It works in two steps, so
+# the stock launcher stays on until Projectivy has owned Home across a
+# reboot and the TV is never left without a usable Home:
+#
+#   bin/launcher                makes Projectivy the default Home activity,
+#                               then presses Home and checks it lands there.
+#   bin/launcher disable-stock  after a reboot, checks Home still lands on
+#                               Projectivy, backs up the TV, then disables the
+#                               stock launcher and its recommendations with
+#                               pm disable-user --user 0.
+#
+# Install Projectivy from the Play Store first. Undo with bin/restore, which
+# re-enables the stock launcher and makes it the default Home again.
+set -euo pipefail
+source "$(dirname "$0")/../lib/tv.sh"
+
+# bin/launcher copies the TV's boot id here when it sets Home, so
+# disable-stock can tell whether the TV has rebooted since. /data/local/tmp
+# survives reboots; the boot id doesn't.
+BOOT_ID=/proc/sys/kernel/random/boot_id
+BOOT_MARKER=/data/local/tmp/tcl-os-home-boot-id
+# Seconds to let the TV settle after pressing Home.
+LAUNCHER_SETTLE="${LAUNCHER_SETTLE:-3}"
+
+step=set
+if [[ "${1:-}" == disable-stock ]]; then
+  step=disable-stock
+  shift
+fi
+
+require_adb
+entry="$(tv_lookup "${1:-}")"
+name="${entry%% *}"
+serial="${entry#* }:$ADB_PORT"
+require_connected "$serial"
+
+tv() { adb -s "$serial" shell "$@" | tr -d '\r'; }
+
+# press_home: presses Home on the remote and prints the activity that comes
+# to the front.
+press_home() {
+  tv input keyevent KEYCODE_HOME > /dev/null
+  sleep "$LAUNCHER_SETTLE"
+  tv dumpsys activity activities \
+    | awk '/mResumedActivity:/ && !found { found = 1; print $(NF - 1) }'
+}
+
+# require_home_on_projectivy: presses Home and exits unless Projectivy comes
+# up.
+require_home_on_projectivy() {
+  local front
+  front="$(press_home)"
+  if [[ "${front%%/*}" != "$PROJECTIVY" ]]; then
+    die "Home opened ${front:-nothing} instead of Projectivy, so the TV ignores the default Home." \
+      "Use Projectivy's override mode instead: in Projectivy's settings, turn on the option" \
+      "to override the current launcher and allow its accessibility service." \
+      "Leave the stock launcher enabled; don't run bin/launcher disable-stock."
+  fi
+  echo "Home button lands on Projectivy ($front)"
+}
+
+state_of() { awk -v p="$1" '$2 == p { print $1 }' <<< "$now"; }
+
+now="$(tv_packages "$serial")"
+
+if [[ "$step" == set ]]; then
+  [[ "$(state_of "$PROJECTIVY")" == enabled ]] \
+    || die "Projectivy Launcher ($PROJECTIVY) isn't installed and enabled. Install it from the Play Store on the TV, then run bin/launcher again."
+  component="$(home_activity_of "$serial" "$PROJECTIVY")"
+  [[ -n "$component" ]] || die "Projectivy has no Home activity on the TV. Open it once on the TV, then try again."
+
+  marker="$(tv cat "$BOOT_MARKER" 2> /dev/null || true)"
+  if [[ "$(home_activity "$serial")" == "$component" && -n "$marker" && "$marker" != *"No such file"* ]]; then
+    echo "Projectivy is already the default Home"
+  else
+    set_home "$serial" "$component"
+    tv cp "$BOOT_ID" "$BOOT_MARKER" > /dev/null
+    echo "Made $component the default Home"
+  fi
+
+  require_home_on_projectivy
+  echo
+  echo "Next: reboot the TV (adb -s $serial reboot), run bin/connect, press Home on"
+  echo "the remote and check it lands on Projectivy. Then run bin/launcher disable-stock."
+  exit 0
+fi
+
+# disable-stock
+[[ "$(home_activity "$serial")" == "$PROJECTIVY/"* ]] \
+  || die "Projectivy isn't the default Home. Run bin/launcher first."
+marker="$(tv cat "$BOOT_MARKER" 2> /dev/null || true)"
+[[ -n "$marker" && "$marker" != *"No such file"* ]] \
+  || die "no record of bin/launcher setting Home on this TV. Run bin/launcher first."
+[[ "$marker" != "$(tv cat "$BOOT_ID")" ]] \
+  || die "the TV hasn't rebooted since bin/launcher made Projectivy the default Home." \
+    "Reboot it (adb -s $serial reboot), run bin/connect, check Home lands on Projectivy," \
+    "then run bin/launcher disable-stock again."
+
+require_home_on_projectivy
+
+todo=()
+for pkg in "$STOCK_LAUNCHER" "$STOCK_RECOMMENDATIONS"; do
+  case "$(state_of "$pkg")" in
+    enabled) todo+=("$pkg") ;;
+    disabled) ;;
+    uninstalled) echo "skip     $pkg (uninstalled; launcher leaves it)" ;;
+    "") echo "skip     $pkg (not on the TV)" ;;
+  esac
+done
+
+if [[ "${#todo[@]}" -eq 0 ]]; then
+  echo "Nothing to disable: the stock launcher and recommendations are already off."
+  exit 0
+fi
+
+"$TV_ROOT/bin/backup" "$name"
+
+for pkg in "${todo[@]}"; do
+  result="$(adb -s "$serial" shell pm disable-user --user 0 "$pkg" 2>&1 | tr -d '\r')"
+  [[ "$result" == *"new state: disabled-user"* ]] \
+    || die "'pm disable-user --user 0 $pkg' failed: $result"
+  echo "disabled $pkg"
+done
+echo "Disabled ${#todo[@]} package(s). Undo with bin/restore."

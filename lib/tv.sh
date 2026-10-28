@@ -129,3 +129,29 @@ read_list() {
   [[ -f "$file" ]] || die "no package list at $file"
   sed 's/#.*//' "$file" | awk 'NF { print $1 }'
 }
+
+PROJECTIVY=com.spocky.projengmenu
+STOCK_LAUNCHER=com.google.android.tvlauncher
+STOCK_RECOMMENDATIONS=com.google.android.tvrecommendations
+
+# home_activity <serial>: prints the TV's default Home activity.
+home_activity() {
+  adb -s "$1" shell cmd package resolve-activity --brief \
+    -a android.intent.action.MAIN -c android.intent.category.HOME \
+    | tr -d '\r' | tail -n 1
+}
+
+# home_activity_of <serial> <package>: prints the package's Home activity, or
+# nothing if it has none (or is disabled or not installed).
+home_activity_of() {
+  adb -s "$1" shell cmd package query-activities --brief \
+    -a android.intent.action.MAIN -c android.intent.category.HOME \
+    | tr -d '\r' | awk -v p="$2/" 'index($0, p) == 1 && !found { found = 1; print }'
+}
+
+# set_home <serial> <component>: makes component the default Home activity.
+set_home() {
+  local result
+  result="$(adb -s "$1" shell cmd package set-home-activity --user 0 "$2" 2>&1 | tr -d '\r')"
+  [[ "$result" == *Success* ]] || die "couldn't make $2 the default Home: $result"
+}

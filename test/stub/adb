@@ -5,7 +5,12 @@
 #   STUB_FIRMWARE what ro.software.version_id holds (TCL-only; may be empty)
 #   STUB_STATE    device state `devices` lists (unset -> no devices)
 #   STUB_SERIAL   serial `devices` lists (default 192.168.1.50:5555)
-#   STUB_HOME     what `resolve-activity --brief` prints on its last line
+#   STUB_HOME     file holding the default Home activity, which
+#                 set-home-activity writes (missing -> the stock launcher)
+#   STUB_FOREGROUND  activity that comes to the front when Home is pressed
+#                 (unset -> the default Home)
+#   STUB_BOOT_ID  the TV's boot id (default boot-1)
+#   STUB_MARKER   file standing in for the TV's /data/local/tmp boot marker
 #   STUB_PACKAGES file of "<state> <package>" lines (enabled, disabled or
 #                 uninstalled) the pm commands read and update
 # Every invocation is appended to $STUB_LOG.
@@ -17,6 +22,16 @@ set_state() {
   awk -v s="$1" -v p="$2" '$2 == p { $1 = s } { print }' "$STUB_PACKAGES" \
     > "$STUB_PACKAGES.new" && mv "$STUB_PACKAGES.new" "$STUB_PACKAGES"
 }
+
+# home_of <package>: prints the package's Home activity, if it has one
+home_of() {
+  case "$1" in
+    com.google.android.tvlauncher) echo "$1/.MainActivity" ;;
+    com.spocky.projengmenu) echo "$1/.ui.home.MainActivity" ;;
+  esac
+}
+
+home() { cat "$STUB_HOME" 2> /dev/null || echo com.google.android.tvlauncher/.MainActivity; }
 
 serial=""
 if [[ "$1" == "-s" ]]; then
@@ -51,8 +66,38 @@ case "$1" in
       "getprop ro.build.version.security_patch") echo "2024-03-05" ;;
       cmd\ package\ resolve-activity*)
         echo "priority=0 preferredOrder=0 match=0x108000 specificIndex=-1 isDefault=true"
-        echo "${STUB_HOME:-com.google.android.tvlauncher/.MainActivity}"
+        home
         ;;
+      cmd\ package\ query-activities*)
+        awk '$1 == "enabled" { print $2 }' "$STUB_PACKAGES" | while read -r pkg; do
+          activity="$(home_of "$pkg")"
+          [[ -z "$activity" ]] && continue
+          echo "priority=0 preferredOrder=0 match=0x108000 specificIndex=-1 isDefault=true"
+          echo "$activity"
+        done
+        ;;
+      "cmd package set-home-activity --user 0 "*)
+        echo "${*: -1}" > "$STUB_HOME"
+        echo "Success"
+        ;;
+      "input keyevent KEYCODE_HOME") ;;
+      "dumpsys activity activities")
+        front="${STUB_FOREGROUND:-$(home)}"
+        echo "  ResumedActivity: ActivityRecord{1a2b3c u0 $front t7}"
+        echo "    mResumedActivity: ActivityRecord{1a2b3c u0 $front t7}"
+        echo "    mLastResumedActivity: ActivityRecord{4d5e6f u0 com.example/.Old t3}"
+        ;;
+      "cat /proc/sys/kernel/random/boot_id") echo "${STUB_BOOT_ID:-boot-1}" ;;
+      "cat /data/local/tmp/tcl-os-home-boot-id")
+        if [[ -f "$STUB_MARKER" ]]; then
+          cat "$STUB_MARKER"
+        else
+          echo "cat: /data/local/tmp/tcl-os-home-boot-id: No such file or directory" >&2
+          exit 1
+        fi
+        ;;
+      "cp /proc/sys/kernel/random/boot_id /data/local/tmp/tcl-os-home-boot-id")
+        echo "${STUB_BOOT_ID:-boot-1}" > "$STUB_MARKER" ;;
       "pm list packages -u --user 0")
         awk '{ print "package:" $2 }' "$STUB_PACKAGES" ;;
       "pm list packages --user 0")

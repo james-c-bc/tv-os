@@ -73,10 +73,11 @@ name, e.g. `bin/check bedroom`.
 | Script        | What it does                                                                 |
 | ------------- | ---------------------------------------------------------------------------- |
 | `bin/connect` | Connects to the TV over Wi-Fi ADB (port 5555).                               |
-| `bin/check`   | Prints the TV's model, Android version, firmware, security patch and Home activity, and the state of every package on the disable list. |
+| `bin/check`   | Prints the TV's model, Android version, firmware, security patch, Home activity and whether the stock launcher is disabled, and the state of every package on the disable list. |
 | `bin/backup`  | Snapshots every package's state to `backups/<tv-name>/<timestamp>.txt`.      |
 | `bin/restore` | Re-enables packages that were enabled in a snapshot. Never disables anything. |
 | `bin/debloat` | Backs up, then disables the packages on `lists/disable.txt`. Never uninstalls. |
+| `bin/launcher` | Makes Projectivy Launcher the Home screen, then (`disable-stock`, after a reboot) disables the stock launcher. |
 
 ## Backup and restore
 
@@ -109,6 +110,9 @@ disabled now (`pm enable`) or uninstalled now (`cmd package install-existing`).
 It never disables anything, so it only undoes disables, and running it twice
 does nothing the second time. Packages installed since the snapshot are left
 alone.
+
+If restore re-enables the stock launcher (`com.google.android.tvlauncher`),
+it also makes it the default Home again.
 
 ## Debloat
 
@@ -151,6 +155,41 @@ Run this on the TV after each debloat:
 - [ ] Chromecast casting to the TV works
 - [ ] Voice search works
 - [ ] A streaming app plays
+
+Once Projectivy is the Home screen (see below), also check:
+
+- [ ] Home button lands on Projectivy
+- [ ] After a reboot, Home still lands on Projectivy
+
+## Home screen
+
+Projectivy Launcher replaces the stock Android TV launcher and its ad and
+recommendation rows. Disabling the stock launcher before Projectivy reliably
+owns Home can leave the TV with no usable UI, so this happens in order, with
+a reboot in the middle:
+
+1. On the TV, install **Projectivy Launcher** from the Play Store.
+2. Run `bin/launcher`. It makes Projectivy the default Home activity
+   (`cmd package set-home-activity`), presses Home and checks Projectivy comes
+   up. The stock launcher stays enabled.
+3. Reboot the TV (`adb -s <tv-ip>:5555 reboot`), run `bin/connect`, and press
+   Home on the remote. It should land on Projectivy.
+4. Run `bin/launcher disable-stock`. It refuses unless Projectivy is the
+   default Home and the TV has rebooted since step 2. It presses Home again
+   and checks Projectivy comes up, takes a backup, then disables
+   `com.google.android.tvlauncher` and `com.google.android.tvrecommendations`
+   with `pm disable-user --user 0`.
+5. Commit the backup and run the test checklist above.
+
+If Home ignores the default and opens the stock launcher, `bin/launcher`
+says so. Then use Projectivy's override mode instead: in Projectivy's
+settings, turn on the option to override the current launcher and allow its
+accessibility service. Leave the stock launcher enabled, and don't run
+`bin/launcher disable-stock`.
+
+To go back to the stock launcher, run `bin/restore` with the snapshot
+`disable-stock` took. It re-enables the stock launcher and recommendations
+and makes the stock launcher the default Home again.
 
 ## Tests
 
