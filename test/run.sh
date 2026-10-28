@@ -185,6 +185,13 @@ run "$root/bin/check"
 expect "check says the stock launcher is enabled" contains "Stock launcher:   enabled"
 
 reset
+export STUB_STATE=device
+packages "enabled com.google.android.apps.tv.launcherx"
+run "$root/bin/check"
+expect "check names launcherx as the stock launcher" \
+  contains "Stock launcher:   enabled (com.google.android.apps.tv.launcherx)"
+
+reset
 run "$root/bin/check" kitchen
 expect "check fails for an unknown TV name" contains "no TV named 'kitchen'"
 
@@ -458,6 +465,27 @@ expect "restore says Home is back on the stock launcher" \
 run "$root/bin/restore"
 expect "restore leaves Home alone when the stock launcher was already on" \
   bash -c "! grep -q set-home-activity '$STUB_LOG'"
+
+# The RT51M firmware's stock launcher is launcherx, with no tvrecommendations.
+reset
+export STUB_STATE=device
+packages "enabled com.google.android.apps.tv.launcherx" \
+  "enabled com.spocky.projengmenu" "enabled com.android.tv.settings"
+echo com.google.android.apps.tv.launcherx/.home.HomeActivity > "$STUB_HOME"
+run "$root/bin/launcher"
+expect "launcher finds Projectivy's Home next to launcherx" \
+  grep -q "set-home-activity --user 0 com.spocky.projengmenu/.ui.home.MainActivity" "$STUB_LOG"
+export STUB_BOOT_ID=boot-2
+run "$root/bin/launcher" disable-stock
+expect "disable-stock disables launcherx" \
+  grep -qx "disabled com.google.android.apps.tv.launcherx" "$STUB_PACKAGES"
+expect "disable-stock skips tvrecommendations when it isn't there" \
+  contains "skip     com.google.android.tvrecommendations (not on the TV)"
+run "$root/bin/restore"
+expect "restore brings launcherx back" \
+  grep -qx "enabled com.google.android.apps.tv.launcherx" "$STUB_PACKAGES"
+expect "restore makes launcherx the default Home again" \
+  grep -qx "com.google.android.apps.tv.launcherx/.home.HomeActivity" "$STUB_HOME"
 
 echo
 echo "$pass passed, $fail failed"

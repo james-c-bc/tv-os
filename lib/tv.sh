@@ -131,7 +131,9 @@ read_list() {
 }
 
 PROJECTIVY=com.spocky.projengmenu
-STOCK_LAUNCHER=com.google.android.tvlauncher
+# Android TV 11 firmware ships one stock launcher or the other; RT51M
+# firmware has launcherx.
+STOCK_LAUNCHERS=(com.google.android.apps.tv.launcherx com.google.android.tvlauncher)
 STOCK_RECOMMENDATIONS=com.google.android.tvrecommendations
 
 # home_activity <serial>: prints the TV's default Home activity.
@@ -146,7 +148,9 @@ home_activity() {
 home_activity_of() {
   adb -s "$1" shell cmd package query-activities --brief \
     -a android.intent.action.MAIN -c android.intent.category.HOME \
-    | tr -d '\r' | awk -v p="$2/" 'index($0, p) == 1 && !found { found = 1; print }'
+    | tr -d '\r' | awk -v p="$2/" '
+        { sub(/^[ \t]+/, "") }
+        index($0, p) == 1 && !found { found = 1; print }'
 }
 
 # set_home <serial> <component>: makes component the default Home activity.

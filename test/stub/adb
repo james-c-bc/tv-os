@@ -27,6 +27,7 @@ set_state() {
 home_of() {
   case "$1" in
     com.google.android.tvlauncher) echo "$1/.MainActivity" ;;
+    com.google.android.apps.tv.launcherx) echo "$1/.home.HomeActivity" ;;
     com.spocky.projengmenu) echo "$1/.ui.home.MainActivity" ;;
   esac
 }
@@ -69,12 +70,18 @@ case "$1" in
         home
         ;;
       cmd\ package\ query-activities*)
-        awk '$1 == "enabled" { print $2 }' "$STUB_PACKAGES" | while read -r pkg; do
-          activity="$(home_of "$pkg")"
-          [[ -z "$activity" ]] && continue
-          echo "priority=0 preferredOrder=0 match=0x108000 specificIndex=-1 isDefault=true"
-          echo "$activity"
-        done
+        # Same layout as the real TV: a count, then indented entries.
+        activities="$(awk '$1 == "enabled" { print $2 }' "$STUB_PACKAGES" \
+          | while read -r pkg; do home_of "$pkg"; done)"
+        echo "$(grep -c . <<< "$activities") activities found:"
+        i=0
+        while read -r activity; do
+          [[ -n "$activity" ]] || continue
+          echo "  Activity #$i:"
+          echo "    priority=0 preferredOrder=0 match=0x108000 specificIndex=-1 isDefault=true"
+          echo "    $activity"
+          i=$((i + 1))
+        done <<< "$activities"
         ;;
       "cmd package set-home-activity --user 0 "*)
         echo "${*: -1}" > "$STUB_HOME"

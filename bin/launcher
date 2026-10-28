@@ -102,7 +102,7 @@ marker="$(tv cat "$BOOT_MARKER" 2> /dev/null || true)"
 require_home_on_projectivy
 
 todo=()
-for pkg in "$STOCK_LAUNCHER" "$STOCK_RECOMMENDATIONS"; do
+for pkg in "${STOCK_LAUNCHERS[@]}" "$STOCK_RECOMMENDATIONS"; do
   case "$(state_of "$pkg")" in
     enabled) todo+=("$pkg") ;;
     disabled) ;;

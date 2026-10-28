@@ -18,7 +18,14 @@ firmware="$(tv getprop ro.software.version_id)"
 
 home="$(home_activity "$serial")"
 now="$(tv_packages "$serial")"
-stock="$(awk -v p="$STOCK_LAUNCHER" '$2 == p { print $1 }' <<< "$now")"
+stock="not on TV"
+for pkg in "${STOCK_LAUNCHERS[@]}"; do
+  state="$(awk -v p="$pkg" '$2 == p { print $1 }' <<< "$now")"
+  if [[ -n "$state" ]]; then
+    stock="$state ($pkg)"
+    break
+  fi
+done
 
 echo "TV:               $serial"
 echo "Model:            $(tv getprop ro.product.model)"
@@ -27,7 +34,7 @@ echo "Firmware:         ${firmware:-unknown}"
 echo "Android build:    $(tv getprop ro.build.display.id)"
 echo "Security patch:   $(tv getprop ro.build.version.security_patch)"
 echo "Home activity:    $home"
-echo "Stock launcher:   ${stock:-not on TV}"
+echo "Stock launcher:   $stock"
 
 # How much of the debloat has stuck, e.g. after a firmware update.
 disable="$(read_list disable)"

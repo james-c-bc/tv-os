@@ -44,12 +44,14 @@ while read -r state pkg; do
     || die "'${cmd[*]}' failed: $result"
   echo "enabled $pkg (was $current)"
   changed=$((changed + 1))
-  [[ "$pkg" != "$STOCK_LAUNCHER" ]] || stock_back=1
+  for stock in "${STOCK_LAUNCHERS[@]}"; do
+    [[ "$pkg" != "$stock" ]] || stock_back="$pkg"
+  done
 done < <(grep -v '^#' "$snapshot")
 
 # Projectivy stays the preferred Home until told otherwise.
 if [[ -n "$stock_back" ]]; then
-  component="$(home_activity_of "$serial" "$STOCK_LAUNCHER")"
+  component="$(home_activity_of "$serial" "$stock_back")"
   [[ -n "$component" ]] || die "the stock launcher is back but has no Home activity"
   set_home "$serial" "$component"
   echo "Made $component the default Home again"

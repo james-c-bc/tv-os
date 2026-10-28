@@ -111,8 +111,9 @@ It never disables anything, so it only undoes disables, and running it twice
 does nothing the second time. Packages installed since the snapshot are left
 alone.
 
-If restore re-enables the stock launcher (`com.google.android.tvlauncher`),
-it also makes it the default Home again.
+If restore re-enables the stock launcher (`com.google.android.apps.tv.launcherx`
+on RT51M firmware, `com.google.android.tvlauncher` on others), it also makes
+it the default Home again.
 
 ## Debloat
 
@@ -177,8 +178,10 @@ a reboot in the middle:
 4. Run `bin/launcher disable-stock`. It refuses unless Projectivy is the
    default Home and the TV has rebooted since step 2. It presses Home again
    and checks Projectivy comes up, takes a backup, then disables
-   `com.google.android.tvlauncher` and `com.google.android.tvrecommendations`
-   with `pm disable-user --user 0`.
+   the stock launcher with `pm disable-user --user 0`. That's
+   `com.google.android.apps.tv.launcherx` on RT51M firmware;
+   on other firmware it's `com.google.android.tvlauncher`, along with
+   `com.google.android.tvrecommendations`.
 5. Commit the backup and run the test checklist above.
 
 If Home ignores the default and opens the stock launcher, `bin/launcher`
